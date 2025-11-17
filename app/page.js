@@ -28,11 +28,12 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTransactions } from "@/lib/hooks/useTransactions";
 import { useNotifications } from "@/lib/hooks/useNotifications";
+import { calculateBalance as calculateBalanceUtil } from "@/lib/utils/balance";
 
 function HomePageContent() {
   const { user } = useAuth();
   const router = useRouter();
-  const { transactions, loading: transactionsLoading } = useTransactions(10);
+  const { transactions, loading: transactionsLoading } = useTransactions(1000); // Fetch all transactions for accurate balance calculation
   const { unreadCount } = useNotifications();
   const [balanceVisible, setBalanceVisible] = useState(true);
   const [mounted, setMounted] = useState(false);
@@ -42,14 +43,14 @@ function HomePageContent() {
   }, []);
 
   // Calculate balance and monthly stats from transactions
+  // New accounts start at $0.00 - balance is calculated purely from transactions
   const calculateBalance = () => {
-    // Default starting balance - in production, this should come from an account balance table
-    const startingBalance = 12450.75;
+    const accountBalance = calculateBalanceUtil(transactions);
     
     if (!transactions || transactions.length === 0) {
       return {
-        accountBalance: startingBalance,
-        availableBalance: startingBalance * 0.92,
+        accountBalance,
+        availableBalance: accountBalance,
         monthlyIncome: 0,
         monthlyExpenses: 0,
       };
@@ -68,23 +69,21 @@ function HomePageContent() {
       .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
 
     const monthlyExpenses = monthlyTransactions
-      .filter((t) => t.type === 'expense' || t.type === 'payment' || t.type === 'transfer' || t.type === 'withdrawal')
-      .reduce((sum, t) => sum + Math.abs(parseFloat(t.amount || 0)), 0);
+      .filter((t) => {
+        // For expenses, payments, transfers, withdrawals - use absolute value since amounts can be negative
+        const isExpenseType = ['expense', 'payment', 'transfer', 'withdrawal', 'request'].includes(t.type);
+        return isExpenseType;
+      })
+      .reduce((sum, t) => {
+        // For withdrawals and transfers, amount is already negative, so we add the absolute value
+        const amount = Math.abs(parseFloat(t.amount || 0));
+        return sum + amount;
+      }, 0);
 
-    // Calculate total balance from all transactions
-    const totalIncome = transactions
-      .filter((t) => t.type === 'income' || t.type === 'deposit')
-      .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
-    
-    const totalExpenses = transactions
-      .filter((t) => t.type === 'expense' || t.type === 'payment' || t.type === 'transfer' || t.type === 'withdrawal')
-      .reduce((sum, t) => sum + Math.abs(parseFloat(t.amount || 0)), 0);
-
-    const accountBalance = startingBalance + totalIncome - totalExpenses;
-    const availableBalance = Math.max(0, accountBalance * 0.92); // Assuming 8% reserved
+    const availableBalance = accountBalance; // Available balance equals account balance (no reserve for now)
 
     return {
-      accountBalance: Math.max(0, accountBalance),
+      accountBalance,
       availableBalance,
       monthlyIncome,
       monthlyExpenses,

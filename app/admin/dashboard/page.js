@@ -125,7 +125,10 @@ function AdminDashboardContent() {
                 <Users className="w-5 h-5" />
                 Users
               </a>
-              <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
+              <a 
+                href="/admin/transactions" 
+                className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+              >
                 <Activity className="w-5 h-5" />
                 Transactions
               </a>
@@ -209,8 +212,13 @@ function AdminDashboardContent() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-600 mb-4">Monitor all transactions, review suspicious activities, and manage transaction disputes.</p>
-                  <Button className="w-full">View Transactions</Button>
+                  <p className="text-gray-600 mb-4">Credit and debit user accounts, monitor transactions, and manage transaction disputes.</p>
+                  <Button 
+                    className="w-full"
+                    onClick={() => router.push("/admin/transactions")}
+                  >
+                    Manage Transactions
+                  </Button>
                 </CardContent>
               </Card>
             </div>

@@ -29,6 +29,8 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase/client";
+import { useTransactions } from "@/lib/hooks/useTransactions";
+import { calculateBalance, hasSufficientBalance } from "@/lib/utils/balance";
 
 const STEPS = [
   { id: 1, title: "Payee", icon: User },
@@ -47,6 +49,7 @@ const BILL_CATEGORIES = [
 function PayPageContent() {
   const router = useRouter();
   const { user } = useAuth();
+  const { transactions } = useTransactions(1000); // Fetch all transactions for balance calculation
   const [currentStep, setCurrentStep] = useState(1);
   const [stepDirection, setStepDirection] = useState("forward");
   const [isLoading, setIsLoading] = useState(false);
@@ -146,14 +149,25 @@ function PayPageContent() {
   const handleSubmit = async () => {
     if (!validateStep(3)) return;
 
+    // Check balance before proceeding
+    const paymentAmount = parseFloat(formData.amount);
+    const currentBalance = calculateBalance(transactions);
+    
+    if (!hasSufficientBalance(transactions, paymentAmount)) {
+      toast.error(`Insufficient balance. Your current balance is ${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(currentBalance)}`);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     
     try {
       // Create payment record in Supabase
+      // Payment amount should be negative (debit from account)
       const paymentData = {
         user_id: user.id,
         type: 'payment',
-        amount: parseFloat(formData.amount),
+        amount: -Math.abs(paymentAmount), // Negative amount for debit
         recipient_name: formData.payeeName,
         recipient_account: formData.payeeAccount || null,
         recipient_phone: formData.payeePhone || null,
