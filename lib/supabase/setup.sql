@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS profiles (
   routing_number TEXT,
   account_type TEXT DEFAULT 'checking',
   currency TEXT DEFAULT 'USD' CHECK (currency IN ('USD', 'EUR', 'AUD')),
+  is_blocked BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

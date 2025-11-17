@@ -36,7 +36,7 @@ export async function GET(request) {
       }
     });
 
-    // Fetch all profiles
+    // Fetch all profiles (including is_blocked)
     const { data: profiles, error: profilesError } = await supabaseAdmin
       .from('profiles')
       .select('*')

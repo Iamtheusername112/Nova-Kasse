@@ -12,7 +12,9 @@ import {
   Shield,
   LogOut,
   Menu,
-  X
+  X,
+  Send,
+  MessageSquare
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
@@ -132,6 +134,20 @@ function AdminDashboardContent() {
                 <Activity className="w-5 h-5" />
                 Transactions
               </a>
+              <a 
+                href="/admin/transfers" 
+                className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+              >
+                <Send className="w-5 h-5" />
+                Transfers
+              </a>
+              <a 
+                href="/admin/tickets" 
+                className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+              >
+                <MessageSquare className="w-5 h-5" />
+                Support Tickets
+              </a>
               <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
                 <DollarSign className="w-5 h-5" />
                 Financial Reports
@@ -218,6 +234,42 @@ function AdminDashboardContent() {
                     onClick={() => router.push("/admin/transactions")}
                   >
                     Manage Transactions
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Send className="w-5 h-5 text-blue-600" />
+                    Transfer Management
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-600 mb-4">Review, approve, or block pending transfer requests from users.</p>
+                  <Button 
+                    className="w-full"
+                    onClick={() => router.push("/admin/transfers")}
+                  >
+                    Manage Transfers
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MessageSquare className="w-5 h-5 text-purple-600" />
+                    Support Tickets
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-600 mb-4">View and respond to user support tickets and account appeals.</p>
+                  <Button 
+                    className="w-full"
+                    onClick={() => router.push("/admin/tickets")}
+                  >
+                    Manage Tickets
                   </Button>
                 </CardContent>
               </Card>

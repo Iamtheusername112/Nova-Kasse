@@ -14,6 +14,8 @@ import {
   Shield,
   CheckCircle2,
   XCircle,
+  Ban,
+  Unlock,
   Mail,
   Phone,
   Calendar,
@@ -70,6 +72,7 @@ function UsersManagementContent() {
   const [savingBanking, setSavingBanking] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [pendingBankingData, setPendingBankingData] = useState(null);
+  const [blockingUser, setBlockingUser] = useState(false);
 
   // Filter users based on search and status
   const filteredUsers = (users || []).filter((user) => {
@@ -88,8 +91,9 @@ function UsersManagementContent() {
 
     const matchesFilter =
       filterStatus === "all" ||
-      (filterStatus === "verified" && user.email_confirmed) ||
-      (filterStatus === "unverified" && !user.email_confirmed);
+      (filterStatus === "verified" && user.email_confirmed && !user.is_blocked) ||
+      (filterStatus === "unverified" && !user.email_confirmed && !user.is_blocked) ||
+      (filterStatus === "blocked" && user.is_blocked);
 
     return matchesSearch && matchesFilter;
   });
@@ -234,23 +238,35 @@ function UsersManagementContent() {
     const toastId = toast.warning(
       `Delete ${userName || "this user"}?`,
       {
-        description: "This action cannot be undone.",
+        description: "This will permanently delete the user from the database. This action cannot be undone.",
         action: {
           label: "Delete",
           onClick: async () => {
             toast.dismiss(toastId);
             try {
-              // Delete from profiles table
-              const { error: profileError } = await supabase
-                .from("profiles")
-                .delete()
-                .eq("id", userId);
+              // Delete user completely using admin API
+              const response = await fetch(`/api/admin/users/${userId}`, {
+                method: 'DELETE',
+              });
 
-              if (profileError) throw profileError;
+              const data = await response.json();
 
-              // Note: Deleting from auth.users requires admin API
-              // For now, we'll just delete from profiles
-              toast.success("User deleted successfully");
+              if (!response.ok) {
+                // Handle specific error cases
+                if (response.status === 404) {
+                  throw new Error(data.error || 'User not found. The user may have already been deleted.');
+                }
+                throw new Error(data.error || 'Failed to delete user');
+              }
+
+              toast.success("User deleted successfully from database");
+              
+              // Close user details modal if open
+              if (showUserDetails && selectedUser?.id === userId) {
+                setShowUserDetails(false);
+                setSelectedUser(null);
+              }
+              
               refreshUsers();
             } catch (error) {
               console.error("Error deleting user:", error);
@@ -402,7 +418,77 @@ function UsersManagementContent() {
     }
   };
 
+  const handleBlockUser = async (userId, userName, isCurrentlyBlocked) => {
+    const action = isCurrentlyBlocked ? 'unblock' : 'block';
+    const toastId = toast.warning(
+      `${action === 'block' ? 'Block' : 'Unblock'} ${userName || "this user"}?`,
+      {
+        description: action === 'block' 
+          ? "This user will be signed out and unable to access their account."
+          : "This user will regain access to their account.",
+        action: {
+          label: action === 'block' ? "Block" : "Unblock",
+          onClick: async () => {
+            toast.dismiss(toastId);
+            try {
+              setBlockingUser(true);
+              const response = await fetch(`/api/admin/users/${userId}/block`, {
+                method: 'PATCH',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  is_blocked: !isCurrentlyBlocked
+                }),
+              });
+
+              const data = await response.json();
+
+              if (!response.ok) {
+                throw new Error(data.error || `Failed to ${action} user`);
+              }
+
+              toast.success(`User ${action === 'block' ? 'blocked' : 'unblocked'} successfully`);
+              
+              // Close user details modal if open
+              if (showUserDetails && selectedUser?.id === userId) {
+                setSelectedUser({
+                  ...selectedUser,
+                  is_blocked: !isCurrentlyBlocked
+                });
+              }
+              
+              refreshUsers();
+            } catch (error) {
+              console.error(`Error ${action}ing user:`, error);
+              toast.error(error.message || `Failed to ${action} user`);
+            } finally {
+              setBlockingUser(false);
+            }
+          },
+        },
+        cancel: {
+          label: "Cancel",
+          onClick: () => {
+            toast.dismiss(toastId);
+          },
+        },
+        duration: 10000,
+      }
+    );
+  };
+
   const getStatusBadge = (user) => {
+    // Show blocked status first
+    if (user.is_blocked) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
+          <Ban className="w-3 h-3" />
+          Blocked
+        </span>
+      );
+    }
+    
     if (user.email_confirmed) {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
@@ -493,17 +579,12 @@ function UsersManagementContent() {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600">Active Today</p>
-                    <p className="text-2xl font-bold text-purple-600">
-                      {users.filter((u) => {
-                        if (!u.last_sign_in) return false;
-                        const today = new Date();
-                        const lastSignIn = new Date(u.last_sign_in);
-                        return lastSignIn.toDateString() === today.toDateString();
-                      }).length}
+                    <p className="text-sm text-gray-600">Blocked</p>
+                    <p className="text-2xl font-bold text-red-600">
+                      {users.filter((u) => u.is_blocked).length}
                     </p>
                   </div>
-                  <Shield className="w-8 h-8 text-purple-600" />
+                  <Ban className="w-8 h-8 text-red-600" />
                 </div>
               </CardContent>
             </Card>
@@ -533,6 +614,7 @@ function UsersManagementContent() {
                     <option value="all">All Users</option>
                     <option value="verified">Verified</option>
                     <option value="unverified">Unverified</option>
+                    <option value="blocked">Blocked</option>
                   </select>
                 </div>
               </div>
@@ -655,6 +737,29 @@ function UsersManagementContent() {
                                 <Eye className="w-4 h-4" />
                                 View
                               </Button>
+                              {user.is_blocked ? (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleBlockUser(user.id, user.full_name || user.email, true)}
+                                  disabled={blockingUser}
+                                  className="flex items-center gap-1 text-green-600 hover:text-green-700"
+                                >
+                                  <Unlock className="w-4 h-4" />
+                                  Unblock
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleBlockUser(user.id, user.full_name || user.email, false)}
+                                  disabled={blockingUser}
+                                  className="flex items-center gap-1 text-orange-600 hover:text-orange-700"
+                                >
+                                  <Ban className="w-4 h-4" />
+                                  Block
+                                </Button>
+                              )}
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -1298,17 +1403,31 @@ function UsersManagementContent() {
 
               {/* Actions */}
               <div className="flex gap-3 pt-4 border-t">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    // TODO: Implement edit functionality
-                    toast.info("Edit functionality coming soon");
-                  }}
-                  className="flex-1"
-                >
-                  <Edit className="w-4 h-4 mr-2" />
-                  Edit User
-                </Button>
+                {selectedUser.is_blocked ? (
+                  <Button
+                    onClick={() => {
+                      setShowUserDetails(false);
+                      handleBlockUser(selectedUser.id, selectedUser.full_name || selectedUser.email, true);
+                    }}
+                    disabled={blockingUser}
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    <Unlock className="w-4 h-4 mr-2" />
+                    Unblock User
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => {
+                      setShowUserDetails(false);
+                      handleBlockUser(selectedUser.id, selectedUser.full_name || selectedUser.email, false);
+                    }}
+                    disabled={blockingUser}
+                    className="flex-1 bg-orange-600 hover:bg-orange-700 text-white"
+                  >
+                    <Ban className="w-4 h-4 mr-2" />
+                    Block User
+                  </Button>
+                )}
                 <Button
                   variant="destructive"
                   onClick={() => {

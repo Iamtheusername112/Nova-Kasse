@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS transactions (
   description TEXT,
   category TEXT,
   note TEXT,
-  status TEXT DEFAULT 'completed' CHECK (status IN ('pending', 'completed', 'failed', 'cancelled')),
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'failed', 'cancelled')),
   transfer_method TEXT CHECK (transfer_method IN ('instant', 'scheduled')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

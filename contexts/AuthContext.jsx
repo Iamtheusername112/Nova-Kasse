@@ -739,6 +739,32 @@ export const AuthProvider = ({ children }) => {
       if (error) throw error;
 
       if (data.user && data.session) {
+        // Check if user is blocked
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('is_blocked')
+          .eq('id', data.user.id)
+          .single();
+
+        if (profileError) {
+          // If column doesn't exist yet, treat as not blocked
+          if (profileError.code === '42703' || profileError.message?.includes('column') || profileError.message?.includes('does not exist')) {
+            console.warn('is_blocked column may not exist yet. Run the migration: lib/supabase/add-user-blocked-column.sql');
+            // Continue with login - column doesn't exist yet
+          } else {
+            console.error('Error checking blocked status:', {
+              message: profileError.message,
+              code: profileError.code,
+              details: profileError.details,
+              hint: profileError.hint
+            });
+            // Continue with login if we can't check - don't block legitimate users
+          }
+        }
+
+        // Note: Blocked users can still log in but will see blocked overlay on home page
+        // The ProtectedRoute no longer signs them out - they remain logged in but disabled
+
         setSession(data.session);
         setUser(data.user);
         storeSessionTimestamp();

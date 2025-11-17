@@ -29,8 +29,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTransactions } from "@/lib/hooks/useTransactions";
 import { useNotifications } from "@/lib/hooks/useNotifications";
 import { useProfile } from "@/lib/hooks/useProfile";
+import { useAccountStatus } from "@/lib/hooks/useAccountStatus";
 import { calculateBalance as calculateBalanceUtil } from "@/lib/utils/balance";
 import { formatCurrency as formatCurrencyUtil } from "@/lib/utils/currency";
+import AccountBlockedOverlay from "@/components/account/AccountBlockedOverlay";
 
 function HomePageContent() {
   const { user } = useAuth();
@@ -38,6 +40,7 @@ function HomePageContent() {
   const { transactions, loading: transactionsLoading } = useTransactions(1000); // Fetch all transactions for accurate balance calculation
   const { unreadCount } = useNotifications();
   const { profile } = useProfile();
+  const { isBlocked } = useAccountStatus();
   const [balanceVisible, setBalanceVisible] = useState(true);
   const [mounted, setMounted] = useState(false);
   
@@ -140,15 +143,20 @@ function HomePageContent() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-purple-50/20 pb-20">
-      <Header 
-        title="Dashboard" 
-        rightIcon="bell" 
-        onRightClick={() => router.push("/notifications")}
-        badgeCount={unreadCount}
-      />
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-purple-50/20 pb-20 relative">
+      {/* Show blocked overlay if account is blocked */}
+      {isBlocked && user && <AccountBlockedOverlay userId={user.id} />}
       
-      <div className="px-4 py-6 space-y-6">
+      {/* Disable all interactions when blocked */}
+      <div className={isBlocked ? "pointer-events-none opacity-50" : ""}>
+        <Header 
+          title="Dashboard" 
+          rightIcon="bell" 
+          onRightClick={() => !isBlocked && router.push("/notifications")}
+          badgeCount={unreadCount}
+        />
+        
+        <div className="px-4 py-6 space-y-6">
         {/* Account Balance Card - Premium Design */}
         <div className={`transform transition-all duration-700 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
           <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 p-6 shadow-2xl animate-gradient-shift">
@@ -202,8 +210,9 @@ function HomePageContent() {
             return (
               <button
                 key={index}
-                onClick={() => action.href && action.href !== "#" && router.push(action.href)}
-                className={`group flex flex-col items-center gap-2 p-4 rounded-2xl bg-white/80 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 hover:-translate-y-1 ${action.delay}`}
+                onClick={() => !isBlocked && action.href && action.href !== "#" && router.push(action.href)}
+                disabled={isBlocked}
+                className={`group flex flex-col items-center gap-2 p-4 rounded-2xl bg-white/80 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 hover:-translate-y-1 ${action.delay} ${isBlocked ? 'cursor-not-allowed opacity-50' : ''}`}
               >
                 <div className={`w-12 h-12 rounded-xl ${action.color} flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform duration-300`}>
                   <Icon className="w-6 h-6" />
@@ -220,7 +229,12 @@ function HomePageContent() {
             <CardContent className="p-5">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-bold text-gray-900 text-lg">This Month</h3>
-                <Button variant="ghost" size="sm" className="text-blue-600">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-blue-600"
+                  disabled={isBlocked}
+                >
                   View All <ArrowRightCircle className="w-4 h-4 ml-1" />
                 </Button>
               </div>
@@ -270,7 +284,12 @@ function HomePageContent() {
         <div className={`transform transition-all duration-700 delay-400 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold text-gray-900 text-lg">Recent Transactions</h3>
-            <Button variant="ghost" size="sm" className="text-blue-600">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="text-blue-600"
+              disabled={isBlocked}
+            >
               See All <ArrowRightCircle className="w-4 h-4 ml-1" />
             </Button>
           </div>
@@ -299,9 +318,9 @@ function HomePageContent() {
                     style={{ animationDelay: `${index * 100}ms` }}
                   >
                     <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3 flex-1">
-                          <div className={`w-12 h-12 rounded-xl ${isCredit ? 'bg-green-600' : 'bg-gray-600'} flex items-center justify-center shadow-md`}>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <div className={`w-12 h-12 rounded-xl ${isCredit ? 'bg-green-600' : 'bg-gray-600'} flex items-center justify-center shadow-md flex-shrink-0`}>
                             <Icon className="w-6 h-6 text-white" />
                           </div>
                           <div className="flex-1 min-w-0">
@@ -309,18 +328,18 @@ function HomePageContent() {
                               {transaction.recipient_name || transaction.description || transaction.category || 'Transaction'}
                             </h4>
                             <div className="flex items-center gap-2 mt-1">
-                              <p className="text-xs text-gray-500">{transaction.category || transaction.type}</p>
-                              <span className="text-gray-300">•</span>
-                              <p className="text-xs text-gray-500">{formatTransactionDate(transaction.created_at)}</p>
+                              <p className="text-xs text-gray-500 truncate">{transaction.category || transaction.type}</p>
+                              <span className="text-gray-300 flex-shrink-0">•</span>
+                              <p className="text-xs text-gray-500 whitespace-nowrap">{formatTransactionDate(transaction.created_at)}</p>
                             </div>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className={`text-lg font-bold ${isCredit ? 'text-green-600' : isDebit ? 'text-red-600' : 'text-gray-900'}`}>
+                        <div className="text-right flex-shrink-0 min-w-0 max-w-[45%]">
+                          <p className={`text-base sm:text-lg font-bold break-words ${isCredit ? 'text-green-600' : isDebit ? 'text-red-600' : 'text-gray-900'}`}>
                             {isCredit ? '+' : isDebit ? '-' : ''}{formatCurrency(Math.abs(amount))}
                           </p>
                           {transaction.status === 'pending' && (
-                            <p className="text-xs text-yellow-600 font-medium">Pending</p>
+                            <p className="text-xs text-yellow-600 font-medium mt-1">Pending</p>
                           )}
                         </div>
                       </div>
@@ -336,6 +355,7 @@ function HomePageContent() {
             </div>
           )}
         </div>
+      </div>
       </div>
 
       <BottomNavigation />

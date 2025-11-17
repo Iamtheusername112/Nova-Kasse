@@ -222,7 +222,7 @@ function TransferPageContent() {
         description: `Transfer to ${formData.recipientName}`,
         category: 'Transfer',
         note: formData.note || null,
-        status: formData.transferMethod === 'instant' ? 'completed' : 'pending',
+        status: 'pending', // All transfers require admin approval
         transfer_method: formData.transferMethod,
       };
 
@@ -239,7 +239,7 @@ function TransferPageContent() {
 
       // Notification will be created automatically by database trigger
       
-      toast.success(`Successfully transferred $${parseFloat(formData.amount).toFixed(2)} to ${formData.recipientName}`);
+      toast.success(`Your transfer of ${formatCurrencyUtil(parseFloat(formData.amount), userCurrency)} is in process`);
       
       // Redirect to home after success
       setTimeout(() => {

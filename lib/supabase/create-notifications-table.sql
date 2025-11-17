@@ -62,7 +62,7 @@ BEGIN
       ELSE 'transaction'
     END,
     CASE 
-      WHEN NEW.type = 'transfer' THEN 'Transfer Completed'
+      WHEN NEW.type = 'transfer' THEN 'Transfer Successful'
       WHEN NEW.type = 'deposit' THEN 'Deposit Received'
       WHEN NEW.type = 'payment' THEN 'Payment Processed'
       WHEN NEW.type = 'income' THEN 'Income Received'
@@ -71,7 +71,7 @@ BEGIN
     END,
     CASE 
       WHEN NEW.type = 'transfer' THEN 
-        'You transferred ' || TO_CHAR(NEW.amount, '$999,999.99') || ' to ' || COALESCE(NEW.recipient_name, 'recipient')
+        TO_CHAR(ABS(NEW.amount), '$999,999.99') || ' sent to ' || COALESCE(NEW.recipient_name, 'recipient') || '. Transfer completed successfully.'
       WHEN NEW.type = 'deposit' THEN 
         'You received ' || TO_CHAR(NEW.amount, '$999,999.99')
       WHEN NEW.type = 'payment' THEN 
