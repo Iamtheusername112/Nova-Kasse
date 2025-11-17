@@ -108,10 +108,6 @@ function TransferPageContent() {
           toast.error("Minimum transfer amount is $1.00");
           return false;
         }
-        if (amount > 10000) {
-          toast.error("Maximum transfer amount is $10,000.00");
-          return false;
-        }
         return true;
       
       case 3:
@@ -446,13 +442,12 @@ function TransferPageContent() {
                   className="w-full pl-12 pr-4 py-4 text-2xl font-bold border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-smooth bg-white"
                   placeholder="0.00"
                   min="1"
-                  max="10000"
                   step="0.01"
                   required
                 />
               </div>
               <p className="text-xs text-gray-500 mt-2">
-                Minimum: $1.00 • Maximum: $10,000.00
+                Minimum: {formatCurrency(1)}
               </p>
             </div>
 
