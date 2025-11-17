@@ -3,7 +3,29 @@ import { createClient } from '@supabase/supabase-js';
 // Update user banking credentials (account number, routing number)
 export async function PATCH(request, { params }) {
   try {
-    const { userId } = params;
+    // In Next.js 13+, params might be a Promise, so await it
+    const resolvedParams = await params;
+    const { userId } = resolvedParams;
+    
+    // Validate userId
+    if (!userId || userId === 'undefined' || userId === 'null') {
+      console.error('Invalid userId received:', userId);
+      return Response.json(
+        { error: 'Invalid user ID provided' },
+        { status: 400 }
+      );
+    }
+
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(userId)) {
+      console.error('Invalid UUID format:', userId);
+      return Response.json(
+        { error: 'Invalid user ID format' },
+        { status: 400 }
+      );
+    }
+
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -40,20 +62,30 @@ export async function PATCH(request, { params }) {
       );
     }
 
-    // Check if account number already exists (if provided)
+    // Check if account number already exists (if provided and different from current)
     if (account_number) {
-      const { data: existingProfile } = await supabaseAdmin
+      // Get current user's account number
+      const { data: currentUser } = await supabaseAdmin
         .from('profiles')
-        .select('id')
-        .eq('account_number', account_number)
-        .neq('id', userId)
+        .select('account_number')
+        .eq('id', userId)
         .single();
 
-      if (existingProfile) {
-        return Response.json(
-          { error: 'Account number already assigned to another user' },
-          { status: 400 }
-        );
+      // Only check for duplicates if the new account number is different from current
+      if (!currentUser || currentUser.account_number !== account_number) {
+        const { data: existingProfile } = await supabaseAdmin
+          .from('profiles')
+          .select('id')
+          .eq('account_number', account_number)
+          .neq('id', userId)
+          .single();
+
+        if (existingProfile) {
+          return Response.json(
+            { error: 'Account number already assigned to another user' },
+            { status: 400 }
+          );
+        }
       }
     }
 

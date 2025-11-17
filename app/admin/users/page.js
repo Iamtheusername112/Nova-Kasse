@@ -36,6 +36,17 @@ import { useUsers } from "@/lib/hooks/useUsers";
 function UsersManagementContent() {
   const router = useRouter();
   const { users, loading, error, refreshUsers } = useUsers();
+  
+  // Debug: Log users data
+  useEffect(() => {
+    console.log("Users data:", { 
+      usersCount: users?.length, 
+      loading, 
+      error,
+      users: users 
+    });
+  }, [users, loading, error]);
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all"); // all, verified, unverified
   const [selectedUser, setSelectedUser] = useState(null);
@@ -56,10 +67,19 @@ function UsersManagementContent() {
     account_type: 'checking'
   });
   const [savingBanking, setSavingBanking] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [pendingBankingData, setPendingBankingData] = useState(null);
 
   // Filter users based on search and status
-  const filteredUsers = users.filter((user) => {
+  const filteredUsers = (users || []).filter((user) => {
+    // Skip users without IDs (shouldn't happen, but defensive check)
+    if (!user || !user.id) {
+      console.warn("User without ID found:", user);
+      return false;
+    }
+
     const matchesSearch =
+      !searchQuery ||
       user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.phone?.includes(searchQuery) ||
@@ -74,6 +94,14 @@ function UsersManagementContent() {
   });
 
   const handleViewUser = async (user) => {
+    // Ensure user has an ID before proceeding
+    if (!user || !user.id) {
+      toast.error("Invalid user data. Please try again.");
+      console.error("handleViewUser: user or user.id is missing", user);
+      return;
+    }
+    
+    console.log("Viewing user:", user.id, user.email);
     setSelectedUser(user);
     setShowUserDetails(true);
     setLoadingDocuments(true);
@@ -201,30 +229,82 @@ function UsersManagementContent() {
   };
 
   const handleDeleteUser = async (userId, userName) => {
-    if (!confirm(`Are you sure you want to delete ${userName || "this user"}? This action cannot be undone.`)) {
-      return;
-    }
+    // Use Sonner toast for confirmation instead of browser confirm
+    const toastId = toast.warning(
+      `Delete ${userName || "this user"}?`,
+      {
+        description: "This action cannot be undone.",
+        action: {
+          label: "Delete",
+          onClick: async () => {
+            toast.dismiss(toastId);
+            try {
+              // Delete from profiles table
+              const { error: profileError } = await supabase
+                .from("profiles")
+                .delete()
+                .eq("id", userId);
 
-    try {
-      // Delete from profiles table
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .delete()
-        .eq("id", userId);
+              if (profileError) throw profileError;
 
-      if (profileError) throw profileError;
-
-      // Note: Deleting from auth.users requires admin API
-      // For now, we'll just delete from profiles
-      toast.success("User deleted successfully");
-      refreshUsers();
-    } catch (error) {
-      console.error("Error deleting user:", error);
-      toast.error("Failed to delete user: " + error.message);
-    }
+              // Note: Deleting from auth.users requires admin API
+              // For now, we'll just delete from profiles
+              toast.success("User deleted successfully");
+              refreshUsers();
+            } catch (error) {
+              console.error("Error deleting user:", error);
+              toast.error("Failed to delete user: " + error.message);
+            }
+          },
+        },
+        cancel: {
+          label: "Cancel",
+          onClick: () => {
+            toast.dismiss(toastId);
+            toast.info("Deletion cancelled");
+          },
+        },
+        duration: 10000, // 10 seconds to decide
+      }
+    );
   };
 
   const handleSaveBankingCredentials = async () => {
+    // Capture selectedUser at the start to avoid closure issues
+    const currentUser = selectedUser;
+    
+    // Validate that we have a selected user with an ID
+    if (!currentUser) {
+      toast.error("No user selected. Please close and reopen the user details.");
+      console.error("handleSaveBankingCredentials: selectedUser is null");
+      return;
+    }
+
+    if (!currentUser.id) {
+      toast.error("User ID is missing. Please close and reopen the user details.");
+      console.error("handleSaveBankingCredentials: selectedUser.id is undefined", currentUser);
+      return;
+    }
+
+    const userId = String(currentUser.id).trim();
+    
+    // Additional validation - ensure userId is a valid string UUID
+    if (!userId || userId === 'undefined' || userId === 'null' || userId === '') {
+      toast.error("Invalid user ID. Please close and reopen the user details.");
+      console.error("handleSaveBankingCredentials: Invalid userId", { userId, currentUser });
+      return;
+    }
+
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(userId)) {
+      toast.error("Invalid user ID format. Please close and reopen the user details.");
+      console.error("handleSaveBankingCredentials: Invalid UUID format", { userId, currentUser });
+      return;
+    }
+
+    console.log("Saving banking credentials for user:", userId, "Type:", typeof userId, "Full user:", currentUser);
+
     // Validate inputs
     if (!bankingFormData.account_number || bankingFormData.account_number.length !== 10) {
       toast.error("Account number must be exactly 10 digits");
@@ -236,10 +316,49 @@ function UsersManagementContent() {
       return;
     }
 
+    // Check if this is a reassignment (changing existing credentials)
+    const isReassignment = currentUser.account_number && 
+      (currentUser.account_number !== bankingFormData.account_number || 
+       currentUser.routing_number !== bankingFormData.routing_number);
+
+    if (isReassignment) {
+      // Store the data and show confirmation toast with action buttons
+      setPendingBankingData({ userId, currentUser, bankingFormData });
+      const toastId = toast.warning(
+        `Reassigning banking credentials for ${currentUser.full_name || currentUser.email}`,
+        {
+          description: `Current: Account ${currentUser.account_number || 'N/A'}, Routing ${currentUser.routing_number || 'N/A'}. New: Account ${bankingFormData.account_number}, Routing ${bankingFormData.routing_number}`,
+          action: {
+            label: "Confirm",
+            onClick: () => {
+              toast.dismiss(toastId);
+              setPendingBankingData(null);
+              processBankingCredentialsUpdate(userId, currentUser, bankingFormData);
+            },
+          },
+          cancel: {
+            label: "Cancel",
+            onClick: () => {
+              toast.dismiss(toastId);
+              setPendingBankingData(null);
+              toast.info("Reassignment cancelled");
+            },
+          },
+          duration: 10000, // 10 seconds to decide
+        }
+      );
+      return;
+    }
+
+    // If not a reassignment, proceed directly
+    processBankingCredentialsUpdate(userId, currentUser, bankingFormData);
+  };
+
+  const processBankingCredentialsUpdate = async (userId, currentUser, bankingFormData) => {
     setSavingBanking(true);
 
     try {
-      const response = await fetch(`/api/admin/users/${selectedUser.id}/banking`, {
+      const response = await fetch(`/api/admin/users/${userId}/banking`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -260,16 +379,18 @@ function UsersManagementContent() {
       toast.success("Banking credentials updated successfully");
       setEditingBanking(false);
       
-      // Refresh user data
-      refreshUsers();
-      
-      // Update selected user with new data
-      setSelectedUser({
-        ...selectedUser,
+      // Update selected user with new data (preserve ID)
+      const updatedUser = {
+        ...currentUser,
+        id: userId, // Ensure ID is preserved
         account_number: bankingFormData.account_number,
         routing_number: bankingFormData.routing_number,
         account_type: bankingFormData.account_type,
-      });
+      };
+      setSelectedUser(updatedUser);
+      
+      // Refresh user data (this might update the users list)
+      refreshUsers();
     } catch (error) {
       console.error("Error updating banking credentials:", error);
       toast.error(error.message || "Failed to update banking credentials");
@@ -742,21 +863,32 @@ function UsersManagementContent() {
                     Banking Credentials
                   </h3>
                   {!editingBanking ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setEditingBanking(true);
-                        setBankingFormData({
-                          account_number: selectedUser.account_number || '',
-                          routing_number: selectedUser.routing_number || '',
-                          account_type: selectedUser.account_type || 'checking'
-                        });
-                      }}
-                    >
-                      <Edit className="w-4 h-4 mr-1" />
-                      {selectedUser.account_number ? 'Edit' : 'Assign'}
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      {selectedUser?.account_number && (
+                        <span className="text-xs text-gray-500">
+                          Auto-assigned on account creation
+                        </span>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (!selectedUser || !selectedUser.id) {
+                            toast.error("User data is missing. Please close and reopen the user details.");
+                            return;
+                          }
+                          setEditingBanking(true);
+                          setBankingFormData({
+                            account_number: selectedUser.account_number || '',
+                            routing_number: selectedUser.routing_number || '',
+                            account_type: selectedUser.account_type || 'checking'
+                          });
+                        }}
+                      >
+                        <Edit className="w-4 h-4 mr-1" />
+                        {selectedUser?.account_number ? 'Change/Reassign' : 'Assign'}
+                      </Button>
+                    </div>
                   ) : (
                     <div className="flex gap-2">
                       <Button
@@ -776,8 +908,16 @@ function UsersManagementContent() {
                       </Button>
                       <Button
                         size="sm"
-                        onClick={handleSaveBankingCredentials}
-                        disabled={savingBanking}
+                        onClick={() => {
+                          // Double-check selectedUser.id before calling save
+                          if (!selectedUser || !selectedUser.id) {
+                            toast.error("User data is missing. Please close and reopen the user details.");
+                            setEditingBanking(false);
+                            return;
+                          }
+                          handleSaveBankingCredentials();
+                        }}
+                        disabled={savingBanking || !selectedUser?.id}
                       >
                         {savingBanking ? (
                           <>
