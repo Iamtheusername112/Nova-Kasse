@@ -10,7 +10,9 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/lib/hooks/useProfile";
 import { getSignedUrl } from "@/lib/utils/storage";
+import { uploadFile } from "@/lib/utils/upload";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase/client";
 
 function ProfilePageContent() {
   const { user, signOut } = useAuth();
@@ -19,10 +21,13 @@ function ProfilePageContent() {
     idDocument: null,
     idDocumentFront: null,
     idDocumentBack: null,
-    proofOfAddress: null
+    proofOfAddress: null,
+    profileImage: null
   });
   const [loadingDocuments, setLoadingDocuments] = useState(false);
   const [copiedField, setCopiedField] = useState(null);
+  const [profileImageFile, setProfileImageFile] = useState(null);
+  const [uploadingProfileImage, setUploadingProfileImage] = useState(false);
   
   const copyToClipboard = async (text, fieldName) => {
     try {
@@ -120,6 +125,16 @@ function ProfilePageContent() {
           }
         }
 
+        // Fetch profile image URL
+        if (profile.profile_image_url) {
+          const profileImageResult = await getSignedUrl("user-documents", profile.profile_image_url, 3600);
+          if (profileImageResult.success) {
+            urls.profileImage = profileImageResult.url;
+          } else {
+            console.warn("Failed to get profile image URL:", profileImageResult.error);
+          }
+        }
+
         setDocumentUrls(urls);
       } catch (error) {
         console.error("Error fetching document URLs:", error);
@@ -149,6 +164,73 @@ function ProfilePageContent() {
     return name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
   };
 
+  const handleProfileImageUpload = async () => {
+    if (!profileImageFile || !user) {
+      toast.error("Please select an image");
+      return;
+    }
+
+    // Validate file type (images only)
+    if (!profileImageFile.type.startsWith('image/')) {
+      toast.error("Please select an image file");
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (profileImageFile.size > 5 * 1024 * 1024) {
+      toast.error("Image size must be less than 5MB");
+      return;
+    }
+
+    setUploadingProfileImage(true);
+
+    try {
+      // Generate unique filename
+      // Path structure: {user-id}/profile-image-{timestamp}.{ext}
+      // This matches the storage policy which expects user ID as first folder
+      const fileExt = profileImageFile.name.split('.').pop();
+      const filePath = `${user.id}/profile-image-${Date.now()}.${fileExt}`;
+
+      // Upload image to Supabase Storage
+      const uploadResult = await uploadFile(profileImageFile, "user-documents", filePath);
+
+      if (!uploadResult.success) {
+        throw new Error(uploadResult.error || "Failed to upload image");
+      }
+
+      // Update profile with image URL
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ profile_image_url: uploadResult.path })
+        .eq("id", user.id);
+
+      if (updateError) {
+        throw new Error(updateError.message || "Failed to update profile");
+      }
+
+      // Also update user_metadata for consistency
+      const { error: metadataError } = await supabase.auth.updateUser({
+        data: { profile_image_url: uploadResult.path }
+      });
+
+      if (metadataError) {
+        console.warn("Failed to update user metadata:", metadataError);
+        // Don't throw - profile update succeeded
+      }
+
+      toast.success("Profile image uploaded successfully");
+      setProfileImageFile(null);
+      
+      // Refresh profile data
+      window.location.reload(); // Simple refresh to show new image
+    } catch (error) {
+      console.error("Error uploading profile image:", error);
+      toast.error(error.message || "Failed to upload profile image");
+    } finally {
+      setUploadingProfileImage(false);
+    }
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return "Not provided";
     try {
@@ -166,9 +248,103 @@ function ProfilePageContent() {
       <div className="px-4 py-6">
         {/* User Profile Section */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-24 h-24 rounded-full bg-blue-600 mb-4 flex items-center justify-center text-white text-2xl font-bold">
-            {getUserInitials()}
+          <div className="relative mb-4">
+            {documentUrls.profileImage ? (
+              <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-blue-600 shadow-lg">
+                <img
+                  src={documentUrls.profileImage}
+                  alt="Profile"
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    // Fallback to initials if image fails to load
+                    e.target.style.display = 'none';
+                    const parent = e.target.parentElement;
+                    parent.className = 'w-24 h-24 rounded-full bg-blue-600 flex items-center justify-center text-white text-2xl font-bold border-4 border-blue-600 shadow-lg';
+                    parent.textContent = getUserInitials();
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="w-24 h-24 rounded-full bg-blue-600 flex items-center justify-center text-white text-2xl font-bold border-4 border-blue-600 shadow-lg">
+                {getUserInitials()}
+              </div>
+            )}
+            <button
+              onClick={() => document.getElementById('profile-image-input')?.click()}
+              className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-blue-600 hover:bg-blue-700 flex items-center justify-center text-white shadow-lg border-2 border-white transition-colors"
+              title="Change profile image"
+            >
+              <ImageIcon className="w-4 h-4" />
+            </button>
+            <input
+              id="profile-image-input"
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files[0];
+                if (file) {
+                  setProfileImageFile(file);
+                }
+              }}
+            />
           </div>
+          
+          {/* Profile Image Upload Section */}
+          {profileImageFile && (
+            <Card className="mb-4 w-full max-w-md border-2 border-blue-200 bg-blue-50">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-16 h-16 rounded-lg overflow-hidden border-2 border-blue-300">
+                    <img
+                      src={URL.createObjectURL(profileImageFile)}
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-900">{profileImageFile.name}</p>
+                    <p className="text-xs text-gray-500">
+                      {(profileImageFile.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={handleProfileImageUpload}
+                    disabled={uploadingProfileImage}
+                    className="flex-1"
+                  >
+                    {uploadingProfileImage ? (
+                      <>
+                        <div className="w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <ImageIcon className="w-4 h-4 mr-2" />
+                        Upload Image
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setProfileImageFile(null);
+                      const input = document.getElementById('profile-image-input');
+                      if (input) input.value = '';
+                    }}
+                    disabled={uploadingProfileImage}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <div className="flex items-center gap-2 mb-1">
             <h2 className="text-xl font-semibold text-gray-900">{getUserDisplayName()}</h2>
             <Check className="w-5 h-5 text-yellow-500 fill-yellow-500" />
