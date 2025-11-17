@@ -111,11 +111,17 @@ function AdminDashboardContent() {
               <h2 className="text-lg font-semibold text-gray-900">Admin Panel</h2>
             </div>
             <nav className="flex-1 p-4 space-y-2">
-              <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-lg bg-blue-50 text-blue-700 font-medium">
+              <a 
+                href="/admin/dashboard" 
+                className="flex items-center gap-3 px-4 py-3 rounded-lg bg-blue-50 text-blue-700 font-medium"
+              >
                 <Shield className="w-5 h-5" />
                 Dashboard
               </a>
-              <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
+              <a 
+                href="/admin/users" 
+                className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+              >
                 <Users className="w-5 h-5" />
                 Users
               </a>
@@ -186,7 +192,12 @@ function AdminDashboardContent() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-gray-600 mb-4">View and manage all user accounts, verify KYC documents, and handle account issues.</p>
-                  <Button className="w-full">Manage Users</Button>
+                  <Button 
+                    className="w-full"
+                    onClick={() => router.push("/admin/users")}
+                  >
+                    Manage Users
+                  </Button>
                 </CardContent>
               </Card>
 
