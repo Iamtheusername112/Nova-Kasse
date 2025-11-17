@@ -33,12 +33,28 @@ export const AuthProvider = ({ children }) => {
 
   // Sign out function - memoized to prevent infinite loops
   const signOut = useCallback(async (options = {}) => {
+    // Check if user is admin before signing out (store this before signOut clears session)
+    let isAdminUser = false;
+    let redirectPath = options.redirectTo;
+    
+    try {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      isAdminUser = currentUser?.user_metadata?.role === 'admin' || currentUser?.email === 'admin@novakasse.com';
+      
+      // Determine redirect path if not explicitly provided
+      if (!redirectPath) {
+        redirectPath = isAdminUser ? "/admin/login" : "/login";
+      }
+    } catch (error) {
+      // If we can't get user, default to regular login
+      redirectPath = options.redirectTo || "/login";
+    }
+    
     try {
       setLoading(true);
       
       // Sign out from all devices if requested
       if (options.signOutFromAllDevices) {
-        // Get all user sessions and revoke them
         const { data: { user: currentUser } } = await supabase.auth.getUser();
         if (currentUser) {
           // Note: Supabase doesn't have a direct "sign out all devices" API
@@ -63,12 +79,12 @@ export const AuthProvider = ({ children }) => {
 
       toast.success("Signed out successfully");
       
-      // Redirect to login page
-      router.push("/login");
+      // Redirect to appropriate login page
+      router.push(redirectPath);
       
       // Force a hard reload to clear any cached data
       if (typeof window !== 'undefined') {
-        window.location.href = "/login";
+        window.location.href = redirectPath;
       }
 
       return { success: true };
@@ -81,6 +97,11 @@ export const AuthProvider = ({ children }) => {
       clearCookies();
       setUser(null);
       setSession(null);
+      
+      // Still redirect even on error (use the redirectPath we determined earlier)
+      if (typeof window !== 'undefined') {
+        window.location.href = redirectPath;
+      }
       
       return { success: false, error: error.message };
     } finally {
