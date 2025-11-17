@@ -33,6 +33,7 @@ import { useAccountStatus } from "@/lib/hooks/useAccountStatus";
 import { calculateBalance as calculateBalanceUtil } from "@/lib/utils/balance";
 import { formatCurrency as formatCurrencyUtil } from "@/lib/utils/currency";
 import AccountBlockedOverlay from "@/components/account/AccountBlockedOverlay";
+import TransactionDetailsModal from "@/components/transactions/TransactionDetailsModal";
 
 function HomePageContent() {
   const { user } = useAuth();
@@ -43,6 +44,8 @@ function HomePageContent() {
   const { isBlocked } = useAccountStatus();
   const [balanceVisible, setBalanceVisible] = useState(true);
   const [mounted, setMounted] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState(null);
+  const [showTransactionDetails, setShowTransactionDetails] = useState(false);
   
   // Get user's currency (default to USD)
   const userCurrency = profile?.currency || user?.user_metadata?.currency || 'USD';
@@ -314,8 +317,18 @@ function HomePageContent() {
                 return (
                   <Card 
                     key={transaction.id} 
-                    className="border-0 shadow-md bg-white/80 backdrop-blur-sm rounded-xl hover:shadow-lg transition-all duration-300 hover:scale-[1.02] animate-slide-in-up"
+                    className={`border-0 shadow-md bg-white/80 backdrop-blur-sm rounded-xl transition-all duration-300 animate-slide-in-up ${
+                      isBlocked 
+                        ? 'opacity-50 cursor-not-allowed' 
+                        : 'hover:shadow-lg hover:scale-[1.02] cursor-pointer'
+                    }`}
                     style={{ animationDelay: `${index * 100}ms` }}
+                    onClick={() => {
+                      if (!isBlocked) {
+                        setSelectedTransaction(transaction);
+                        setShowTransactionDetails(true);
+                      }
+                    }}
                   >
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between gap-3">
@@ -357,6 +370,17 @@ function HomePageContent() {
         </div>
       </div>
       </div>
+
+      {/* Transaction Details Modal */}
+      <TransactionDetailsModal
+        transaction={selectedTransaction}
+        isOpen={showTransactionDetails}
+        onClose={() => {
+          setShowTransactionDetails(false);
+          setSelectedTransaction(null);
+        }}
+        userCurrency={userCurrency}
+      />
 
       <BottomNavigation />
     </div>

@@ -35,7 +35,9 @@ function TransactionsManagementContent() {
     amount: "",
     description: "",
     note: "",
-    category: "admin_adjustment"
+    category: "admin_adjustment",
+    transactionDate: "",
+    transactionTime: ""
   });
   const [processing, setProcessing] = useState(false);
 
@@ -55,11 +57,19 @@ function TransactionsManagementContent() {
   const handleOpenCreditDebit = (user, type) => {
     setSelectedUser(user);
     setTransactionType(type);
+    
+    // Set default date/time to current date/time
+    const now = new Date();
+    const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
+    const timeStr = now.toTimeString().split(' ')[0].slice(0, 5); // HH:MM
+    
     setTransactionData({
       amount: "",
       description: type === "credit" ? "Account Credit" : "Account Debit",
       note: "",
-      category: "admin_adjustment"
+      category: "admin_adjustment",
+      transactionDate: dateStr,
+      transactionTime: timeStr
     });
     setShowCreditDebitModal(true);
   };
@@ -67,11 +77,16 @@ function TransactionsManagementContent() {
   const handleCloseModal = () => {
     setShowCreditDebitModal(false);
     setSelectedUser(null);
+    const now = new Date();
+    const dateStr = now.toISOString().split('T')[0];
+    const timeStr = now.toTimeString().split(' ')[0].slice(0, 5);
     setTransactionData({
       amount: "",
       description: "",
       note: "",
-      category: "admin_adjustment"
+      category: "admin_adjustment",
+      transactionDate: dateStr,
+      transactionTime: timeStr
     });
   };
 
@@ -85,6 +100,24 @@ function TransactionsManagementContent() {
 
     if (!transactionData.description || transactionData.description.trim() === "") {
       toast.error("Please enter a description");
+      return false;
+    }
+
+    if (!transactionData.transactionDate) {
+      toast.error("Please select a transaction date");
+      return false;
+    }
+
+    if (!transactionData.transactionTime) {
+      toast.error("Please select a transaction time");
+      return false;
+    }
+
+    // Validate date is not in the future (optional - you can remove this if you want to allow future dates)
+    const selectedDateTime = new Date(`${transactionData.transactionDate}T${transactionData.transactionTime}`);
+    const now = new Date();
+    if (selectedDateTime > now) {
+      toast.error("Transaction date/time cannot be in the future");
       return false;
     }
 
@@ -119,6 +152,9 @@ function TransactionsManagementContent() {
         amount,
       });
 
+      // Combine date and time into ISO timestamp
+      const transactionTimestamp = new Date(`${transactionData.transactionDate}T${transactionData.transactionTime}`).toISOString();
+
       const response = await fetch("/api/admin/transactions", {
         method: "POST",
         headers: {
@@ -132,6 +168,7 @@ function TransactionsManagementContent() {
           note: transactionData.note || null,
           category: transactionData.category,
           status: "completed",
+          created_at: transactionTimestamp, // Custom timestamp
         }),
       });
 
@@ -438,6 +475,38 @@ function TransactionsManagementContent() {
                   rows={3}
                   className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                 />
+              </div>
+
+              {/* Date and Time Selection */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
+                    Transaction Date <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={transactionData.transactionDate}
+                    onChange={(e) =>
+                      setTransactionData({ ...transactionData, transactionDate: e.target.value })
+                    }
+                    max={new Date().toISOString().split('T')[0]} // Prevent future dates
+                    className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">
+                    Transaction Time <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="time"
+                    value={transactionData.transactionTime}
+                    onChange={(e) =>
+                      setTransactionData({ ...transactionData, transactionTime: e.target.value })
+                    }
+                    className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
               </div>
 
               <div className="flex gap-3 pt-4">

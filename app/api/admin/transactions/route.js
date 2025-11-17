@@ -21,7 +21,7 @@ export async function POST(request) {
     });
 
     const body = await request.json();
-    const { user_id, type, amount, description, note, category, status } = body;
+    const { user_id, type, amount, description, note, category, status, created_at } = body;
 
     // Validate required fields
     if (!user_id) {
@@ -109,6 +109,33 @@ export async function POST(request) {
     // Round to 2 decimal places to match DECIMAL(10, 2) precision
     const roundedAmount = Math.round(transactionAmount * 100) / 100;
 
+    // Validate and parse custom timestamp if provided
+    let transactionTimestamp = null;
+    if (created_at) {
+      try {
+        const parsedDate = new Date(created_at);
+        if (isNaN(parsedDate.getTime())) {
+          return Response.json(
+            { error: 'Invalid date/time format' },
+            { status: 400 }
+          );
+        }
+        // Convert to ISO string and ensure it's in UTC format for PostgreSQL
+        transactionTimestamp = parsedDate.toISOString();
+        console.log('Custom timestamp provided:', {
+          input: created_at,
+          parsed: parsedDate,
+          iso: transactionTimestamp
+        });
+      } catch (error) {
+        console.error('Error parsing timestamp:', error);
+        return Response.json(
+          { error: 'Invalid date/time format' },
+          { status: 400 }
+        );
+      }
+    }
+
     const transactionData = {
       user_id,
       type,
@@ -122,6 +149,7 @@ export async function POST(request) {
       recipient_email: null,
       recipient_account: null,
       transfer_method: null,
+      ...(transactionTimestamp && { created_at: transactionTimestamp }), // Only include if custom timestamp provided
     };
 
     const { data: transaction, error: transactionError } = await supabaseAdmin
@@ -137,6 +165,17 @@ export async function POST(request) {
         { status: 500 }
       );
     }
+
+    // Log the created transaction for debugging
+    console.log('Transaction created successfully:', {
+      id: transaction.id,
+      user_id: transaction.user_id,
+      type: transaction.type,
+      amount: transaction.amount,
+      created_at: transaction.created_at,
+      custom_timestamp_provided: !!transactionTimestamp,
+      custom_timestamp_value: transactionTimestamp
+    });
 
     // Create notification for the user
     const notificationData = {
