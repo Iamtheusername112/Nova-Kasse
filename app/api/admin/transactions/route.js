@@ -1,5 +1,81 @@
 import { createClient } from '@supabase/supabase-js';
 
+// Admin API route to fetch all transactions
+export async function GET() {
+  try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseServiceKey) {
+      return Response.json(
+        { error: 'Service role key not configured' },
+        { status: 500 }
+      );
+    }
+
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    });
+
+    // Fetch all transactions
+    const { data: transactions, error } = await supabaseAdmin
+      .from('transactions')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching transactions:', error);
+      return Response.json(
+        { error: error.message || 'Failed to fetch transactions' },
+        { status: 500 }
+      );
+    }
+
+    // Fetch user profiles for each transaction
+    const userIds = [...new Set(transactions.map(t => t.user_id))];
+    const { data: profiles, error: profilesError } = await supabaseAdmin
+      .from('profiles')
+      .select('id, full_name, currency')
+      .in('id', userIds);
+
+    // Fetch user emails from auth.users
+    const { data: authUsers, error: authError } = await supabaseAdmin.auth.admin.listUsers();
+
+    // Create maps for quick lookup
+    const profilesMap = {};
+    (profiles || []).forEach(profile => {
+      profilesMap[profile.id] = profile;
+    });
+
+    const authUsersMap = {};
+    (authUsers?.users || []).forEach(authUser => {
+      authUsersMap[authUser.id] = authUser;
+    });
+
+    // Format transactions with user information
+    const formattedTransactions = (transactions || []).map(transaction => ({
+      ...transaction,
+      user_name: profilesMap[transaction.user_id]?.full_name || 'Unknown User',
+      user_email: authUsersMap[transaction.user_id]?.email || 'Email not available',
+      user_currency: profilesMap[transaction.user_id]?.currency || 'USD',
+    }));
+
+    return Response.json({
+      success: true,
+      transactions: formattedTransactions,
+    });
+  } catch (error) {
+    console.error('Error in GET /api/admin/transactions:', error);
+    return Response.json(
+      { error: error.message || 'Failed to fetch transactions' },
+      { status: 500 }
+    );
+  }
+}
+
 // Admin API route to create transactions (credit/debit user accounts)
 export async function POST(request) {
   try {
