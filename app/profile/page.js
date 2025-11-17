@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Header from "@/components/layout/Header";
 import BottomNavigation from "@/components/layout/BottomNavigation";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import { Settings, Shield, Bell, Check, LogOut, User, Phone, MapPin, Calendar, FileText, Image as ImageIcon, Download, Eye } from "lucide-react";
+import { Settings, Shield, Bell, Check, LogOut, User, Phone, MapPin, Calendar, FileText, Image as ImageIcon, Download, Eye, CreditCard, Copy, CheckCircle2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -22,6 +22,30 @@ function ProfilePageContent() {
     proofOfAddress: null
   });
   const [loadingDocuments, setLoadingDocuments] = useState(false);
+  const [copiedField, setCopiedField] = useState(null);
+  
+  const copyToClipboard = async (text, fieldName) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(fieldName);
+      toast.success(`${fieldName} copied to clipboard`);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch (error) {
+      toast.error("Failed to copy");
+    }
+  };
+
+  const formatAccountNumber = (accountNumber) => {
+    if (!accountNumber) return "Not assigned";
+    // Format as XXXX-XXXX-XX
+    return accountNumber.replace(/(\d{4})(\d{4})(\d{2})/, '$1-$2-$3');
+  };
+
+  const formatRoutingNumber = (routingNumber) => {
+    if (!routingNumber) return "Not assigned";
+    // Format as XXX-XXX-XXX
+    return routingNumber.replace(/(\d{3})(\d{3})(\d{3})/, '$1-$2-$3');
+  };
   
   // Fetch signed URLs for documents
   useEffect(() => {
@@ -247,6 +271,81 @@ function ProfilePageContent() {
                       </p>
                     </div>
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Banking Credentials Section */}
+            <Card className="mb-6 border-0 shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <CreditCard className="w-5 h-5 text-blue-600" />
+                  Banking Credentials
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <p className="text-xs text-blue-800 mb-3">
+                    <strong>Share these credentials</strong> to receive money transfers from other people
+                  </p>
+                </div>
+                
+                <div className="space-y-4">
+                  {/* Account Number */}
+                  <div className="border-2 border-gray-200 rounded-lg p-4 bg-gray-50">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <p className="text-xs text-gray-500 mb-1">Account Number</p>
+                        <p className="text-lg font-mono font-semibold text-gray-900">
+                          {formatAccountNumber(profile?.account_number || user?.user_metadata?.account_number)}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Account Type: {(profile?.account_type || user?.user_metadata?.account_type || 'checking').charAt(0).toUpperCase() + (profile?.account_type || user?.user_metadata?.account_type || 'checking').slice(1)}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => copyToClipboard(profile?.account_number || user?.user_metadata?.account_number || '', 'Account Number')}
+                        className="ml-4 p-2 rounded-lg hover:bg-blue-100 transition-colors"
+                        title="Copy account number"
+                      >
+                        {copiedField === 'Account Number' ? (
+                          <CheckCircle2 className="w-5 h-5 text-green-600" />
+                        ) : (
+                          <Copy className="w-5 h-5 text-blue-600" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Routing Number */}
+                  <div className="border-2 border-gray-200 rounded-lg p-4 bg-gray-50">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <p className="text-xs text-gray-500 mb-1">Routing Number</p>
+                        <p className="text-lg font-mono font-semibold text-gray-900">
+                          {formatRoutingNumber(profile?.routing_number || user?.user_metadata?.routing_number)}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">Used for wire transfers and ACH</p>
+                      </div>
+                      <button
+                        onClick={() => copyToClipboard(profile?.routing_number || user?.user_metadata?.routing_number || '', 'Routing Number')}
+                        className="ml-4 p-2 rounded-lg hover:bg-blue-100 transition-colors"
+                        title="Copy routing number"
+                      >
+                        {copiedField === 'Routing Number' ? (
+                          <CheckCircle2 className="w-5 h-5 text-green-600" />
+                        ) : (
+                          <Copy className="w-5 h-5 text-blue-600" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                  <p className="text-xs text-yellow-800">
+                    <strong>Security Note:</strong> Keep your banking credentials private. Only share them with trusted parties for receiving payments.
+                  </p>
                 </div>
               </CardContent>
             </Card>

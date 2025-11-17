@@ -18,6 +18,9 @@ CREATE TABLE IF NOT EXISTS profiles (
   id_document_front_url TEXT,
   id_document_back_url TEXT,
   proof_of_address_url TEXT,
+  account_number TEXT UNIQUE,
+  routing_number TEXT,
+  account_type TEXT DEFAULT 'checking',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -52,7 +55,7 @@ BEGIN
   INSERT INTO public.profiles (
     id, full_name, phone, date_of_birth, address, city, state, zip_code, country, 
     security_pin, document_type, id_document_url, id_document_front_url, 
-    id_document_back_url, proof_of_address_url
+    id_document_back_url, proof_of_address_url, account_number, routing_number, account_type
   )
   VALUES (
     NEW.id,
@@ -74,7 +77,10 @@ BEGIN
     NULLIF(TRIM(NEW.raw_user_meta_data->>'id_document_url'), ''),
     NULLIF(TRIM(NEW.raw_user_meta_data->>'id_document_front_url'), ''),
     NULLIF(TRIM(NEW.raw_user_meta_data->>'id_document_back_url'), ''),
-    NULLIF(TRIM(NEW.raw_user_meta_data->>'proof_of_address_url'), '')
+    NULLIF(TRIM(NEW.raw_user_meta_data->>'proof_of_address_url'), ''),
+    NULLIF(TRIM(NEW.raw_user_meta_data->>'account_number'), ''),
+    NULLIF(TRIM(NEW.raw_user_meta_data->>'routing_number'), ''),
+    NULLIF(TRIM(NEW.raw_user_meta_data->>'account_type'), '')
   )
   ON CONFLICT (id) 
   DO UPDATE SET
@@ -92,6 +98,9 @@ BEGIN
     id_document_front_url = COALESCE(EXCLUDED.id_document_front_url, profiles.id_document_front_url),
     id_document_back_url = COALESCE(EXCLUDED.id_document_back_url, profiles.id_document_back_url),
     proof_of_address_url = COALESCE(EXCLUDED.proof_of_address_url, profiles.proof_of_address_url),
+    account_number = COALESCE(EXCLUDED.account_number, profiles.account_number),
+    routing_number = COALESCE(EXCLUDED.routing_number, profiles.routing_number),
+    account_type = COALESCE(EXCLUDED.account_type, profiles.account_type),
     updated_at = NOW();
   RETURN NEW;
 END;
@@ -102,6 +111,9 @@ DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- Create index for account number lookups
+CREATE INDEX IF NOT EXISTS idx_profiles_account_number ON profiles(account_number);
 
 -- Grant necessary permissions
 GRANT USAGE ON SCHEMA public TO anon, authenticated;

@@ -291,6 +291,33 @@ export const AuthProvider = ({ children }) => {
         security_pin: !!finalMetadata.security_pin,
       });
 
+      // Generate unique banking credentials
+      const generateAccountNumber = () => {
+        // Generate 10-digit account number starting with 1
+        const randomPart = Math.floor(Math.random() * 999999999).toString().padStart(9, '0');
+        return `1${randomPart}`;
+      };
+
+      const generateRoutingNumber = () => {
+        // Standard US routing number format (9 digits)
+        // Using a fictional routing number for the bank
+        return '021000021'; // This should be your bank's actual routing number
+      };
+
+      const accountNumber = generateAccountNumber();
+      const routingNumber = generateRoutingNumber();
+      const accountType = 'checking';
+
+      console.log("=== GENERATING BANKING CREDENTIALS ===");
+      console.log("Account Number:", accountNumber);
+      console.log("Routing Number:", routingNumber);
+      console.log("Account Type:", accountType);
+
+      // Add banking credentials to metadata
+      finalMetadata.account_number = accountNumber;
+      finalMetadata.routing_number = routingNumber;
+      finalMetadata.account_type = accountType;
+
       // Step 1: Create the auth user
       // Send all metadata - Supabase will store what it receives
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -587,6 +614,9 @@ export const AuthProvider = ({ children }) => {
             id_document_front_url: idDocumentFrontUrl || null,
             id_document_back_url: idDocumentBackUrl || null,
             proof_of_address_url: proofOfAddressUrl || null,
+            account_number: accountNumber,
+            routing_number: routingNumber,
+            account_type: accountType,
           };
 
           console.log("=== FORCING PROFILE SAVE ===");
