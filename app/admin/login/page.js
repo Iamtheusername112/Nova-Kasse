@@ -195,7 +195,7 @@ export default function AdminLoginPage() {
                     }}
                     required
                     className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                    placeholder="admin@novakasse.com"
+                    placeholder="Enter admin email"
                   />
                 </div>
               </div>
@@ -252,18 +252,11 @@ export default function AdminLoginPage() {
             </form>
 
             <div className="mt-6 pt-6 border-t border-white/20">
-              <p className="text-center text-sm text-gray-300 mb-2">
+              <p className="text-center text-sm text-gray-300">
                 <a href="/login" className="text-blue-400 hover:text-blue-300 transition-colors">
                   Regular User Login
                 </a>
               </p>
-              <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                <p className="text-xs text-yellow-200 text-center">
-                  <strong>Admin Credentials:</strong><br />
-                  Email: admin@novakasse.com<br />
-                  Password: Nova_20100
-                </p>
-              </div>
             </div>
           </CardContent>
         </Card>

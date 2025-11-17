@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AdminProtectedRoute from "@/components/auth/AdminProtectedRoute";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,52 +14,138 @@ import {
   Menu,
   X,
   Send,
-  MessageSquare
+  MessageSquare,
+  RefreshCw
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import LoadingScreen from "@/components/ui/loading-screen";
+import { useMinimumLoadingTime } from "@/lib/hooks/useMinimumLoadingTime";
+import { supabase } from "@/lib/supabase/client";
 
 function AdminDashboardContent() {
   const { user, signOut } = useAuth();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    totalTransactions: 0,
+    totalRevenue: "$0",
+    activeAccounts: 0,
+    changes: {
+      users: "+0%",
+      transactions: "+0%",
+      revenue: "+0%",
+      activeAccounts: "+0%"
+    }
+  });
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const displayLoading = useMinimumLoadingTime(loading, 3000);
+
+  const fetchStats = async (isRefresh = false) => {
+    try {
+      const response = await fetch('/api/admin/stats');
+      if (!response.ok) {
+        throw new Error('Failed to fetch statistics');
+      }
+      const data = await response.json();
+      setStats(data);
+      if (!isRefresh) {
+        setLoading(false);
+      }
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+      if (!isRefresh) {
+        toast.error('Failed to load dashboard statistics');
+        setLoading(false);
+      }
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStats();
+    
+    // Set up real-time subscriptions for immediate updates
+    const transactionsChannel = supabase
+      .channel('admin-dashboard-transactions')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'transactions' },
+        (payload) => {
+          console.log('Transaction change detected:', payload.eventType);
+          // Refresh stats when transactions change (silent refresh)
+          fetchStats(true);
+        }
+      )
+      .subscribe();
+
+    const usersChannel = supabase
+      .channel('admin-dashboard-users')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'profiles' },
+        (payload) => {
+          console.log('User change detected:', payload.eventType);
+          // Refresh stats when users change (silent refresh)
+          fetchStats(true);
+        }
+      )
+      .subscribe();
+    
+    // Also refresh stats every 30 seconds as a fallback (silent refresh)
+    const interval = setInterval(() => {
+      fetchStats(true);
+    }, 30000);
+
+    return () => {
+      clearInterval(interval);
+      supabase.removeChannel(transactionsChannel);
+      supabase.removeChannel(usersChannel);
+    };
+  }, []);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchStats();
+  };
 
   const handleSignOut = async () => {
     await signOut({ redirectTo: "/admin/login" });
   };
 
-  const stats = [
+  const statsData = [
     {
       title: "Total Users",
-      value: "0",
+      value: stats.totalUsers.toLocaleString(),
       icon: Users,
       color: "bg-blue-500",
-      change: "+12%",
+      change: stats.changes.users,
       changeType: "positive"
     },
     {
       title: "Total Transactions",
-      value: "0",
+      value: stats.totalTransactions.toLocaleString(),
       icon: Activity,
       color: "bg-green-500",
-      change: "+8%",
+      change: stats.changes.transactions,
       changeType: "positive"
     },
     {
       title: "Total Revenue",
-      value: "$0",
+      value: stats.totalRevenue,
       icon: DollarSign,
       color: "bg-purple-500",
-      change: "+15%",
+      change: stats.changes.revenue,
       changeType: "positive"
     },
     {
       title: "Active Accounts",
-      value: "0",
+      value: stats.activeAccounts.toLocaleString(),
       icon: TrendingUp,
       color: "bg-orange-500",
-      change: "+5%",
+      change: stats.changes.activeAccounts,
       changeType: "positive"
     }
   ];
@@ -167,9 +253,37 @@ function AdminDashboardContent() {
         {/* Main Content */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8">
           <div className="max-w-7xl mx-auto">
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              {stats.map((stat, index) => {
+            {/* Header with refresh button */}
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-2xl font-bold text-gray-900">Dashboard Overview</h2>
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span className="text-xs text-gray-500">Live</span>
+                  </div>
+                </div>
+                <p className="text-sm text-gray-500 mt-1">Real-time statistics and activity monitoring</p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="flex items-center gap-2"
+              >
+                <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                {refreshing ? 'Refreshing...' : 'Refresh'}
+              </Button>
+            </div>
+
+            {displayLoading ? (
+              <LoadingScreen message="Loading Dashboard..." subMessage="Fetching statistics and activity data" />
+            ) : (
+              <>
+                {/* Stats Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                  {statsData.map((stat, index) => {
                 const Icon = stat.icon;
                 return (
                   <Card key={index} className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
@@ -188,9 +302,9 @@ function AdminDashboardContent() {
                   </Card>
                 );
               })}
-            </div>
+                </div>
 
-            {/* Welcome Card */}
+                {/* Welcome Card */}
             <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-600 to-purple-600 text-white mb-8">
               <CardContent className="p-8">
                 <h2 className="text-2xl font-bold mb-2">Welcome back, Administrator!</h2>
@@ -273,7 +387,9 @@ function AdminDashboardContent() {
                   </Button>
                 </CardContent>
               </Card>
-            </div>
+                </div>
+              </>
+            )}
           </div>
         </main>
       </div>
