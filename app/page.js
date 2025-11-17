@@ -17,12 +17,8 @@ import {
   Coffee,
   Film,
   Fuel,
-  Receipt,
-  Car,
-  UtensilsCrossed,
   PiggyBank,
   TrendingDown,
-  PieChart,
   ArrowRightCircle,
   CircleDollarSign
 } from "lucide-react";
@@ -60,12 +56,6 @@ function HomePageContent() {
     { id: 5, name: "Netflix", category: "Entertainment", amount: -15.99, date: "1 week ago", icon: Film, color: "bg-gray-600" },
   ];
 
-  const spendingCategories = [
-    { name: "Shopping", amount: 1250.00, percentage: 35, color: "bg-blue-600", icon: ShoppingBag },
-    { name: "Food", amount: 850.50, percentage: 24, color: "bg-blue-600", icon: UtensilsCrossed },
-    { name: "Transport", amount: 450.00, percentage: 13, color: "bg-blue-600", icon: Car },
-    { name: "Bills", amount: 650.00, percentage: 18, color: "bg-blue-600", icon: Receipt },
-  ];
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
@@ -196,48 +186,8 @@ function HomePageContent() {
           </Card>
         </div>
 
-        {/* Spending Categories */}
-        <div className={`transform transition-all duration-700 delay-400 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-          <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm rounded-2xl">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-gray-900 text-lg">Spending by Category</h3>
-                <PieChart className="w-5 h-5 text-gray-400" />
-              </div>
-              
-              <div className="space-y-3">
-                {spendingCategories.map((category, index) => {
-                  const CategoryIcon = category.icon;
-                  return (
-                    <div key={index} className="animate-slide-in-up" style={{ animationDelay: `${index * 100}ms` }}>
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-xl ${category.color} flex items-center justify-center shadow-md`}>
-                            <CategoryIcon className="w-5 h-5 text-white" />
-                          </div>
-                          <div>
-                            <p className="font-semibold text-gray-900 text-sm">{category.name}</p>
-                            <p className="text-xs text-gray-500">{category.percentage}% of total</p>
-                          </div>
-                        </div>
-                        <p className="font-bold text-gray-900">{formatCurrency(category.amount)}</p>
-                      </div>
-                      <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                        <div 
-                          className={`h-full ${category.color} rounded-full transition-all duration-1000 ease-out`}
-                          style={{ width: `${category.percentage}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
         {/* Recent Transactions */}
-        <div className={`transform transition-all duration-700 delay-500 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+        <div className={`transform transition-all duration-700 delay-400 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold text-gray-900 text-lg">Recent Transactions</h3>
             <Button variant="ghost" size="sm" className="text-blue-600">
