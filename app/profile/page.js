@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Header from "@/components/layout/Header";
 import BottomNavigation from "@/components/layout/BottomNavigation";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import { Settings, Shield, Bell, Check, LogOut, User, Phone, MapPin, Calendar, FileText, Image as ImageIcon, Download, Eye, CreditCard, Copy, CheckCircle2 } from "lucide-react";
+import { Settings, Shield, Bell, Check, LogOut, User, Phone, MapPin, Calendar, Image as ImageIcon, CreditCard, Copy, CheckCircle2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,14 +17,8 @@ import { supabase } from "@/lib/supabase/client";
 function ProfilePageContent() {
   const { user, signOut } = useAuth();
   const { profile, loading: profileLoading } = useProfile();
-  const [documentUrls, setDocumentUrls] = useState({
-    idDocument: null,
-    idDocumentFront: null,
-    idDocumentBack: null,
-    proofOfAddress: null,
-    profileImage: null
-  });
-  const [loadingDocuments, setLoadingDocuments] = useState(false);
+  const [profileImageUrl, setProfileImageUrl] = useState(null);
+  const [loadingProfileImage, setLoadingProfileImage] = useState(false);
   const [copiedField, setCopiedField] = useState(null);
   const [profileImageFile, setProfileImageFile] = useState(null);
   const [uploadingProfileImage, setUploadingProfileImage] = useState(false);
@@ -52,98 +46,32 @@ function ProfilePageContent() {
     return routingNumber.replace(/(\d{3})(\d{3})(\d{3})/, '$1-$2-$3');
   };
   
-  // Fetch signed URLs for documents
+  // Fetch signed URL for profile image
   useEffect(() => {
-    const fetchDocumentUrls = async () => {
-      if (!profile) return;
+    const fetchProfileImageUrl = async () => {
+      if (!profile?.profile_image_url) {
+        setProfileImageUrl(null);
+        return;
+      }
 
-      setLoadingDocuments(true);
+      setLoadingProfileImage(true);
       try {
-        const urls = { 
-          idDocument: null, 
-          idDocumentFront: null,
-          idDocumentBack: null,
-          proofOfAddress: null 
-        };
-
-        // Priority 1: Use separate front/back URLs if they exist (for card-type documents)
-        if (profile.id_document_front_url) {
-          const frontResult = await getSignedUrl("user-documents", profile.id_document_front_url, 3600);
-          if (frontResult.success) {
-            urls.idDocumentFront = frontResult.url;
-          } else {
-            console.warn("Failed to get ID document front URL:", frontResult.error);
-          }
+        const result = await getSignedUrl("user-documents", profile.profile_image_url, 3600);
+        if (result.success) {
+          setProfileImageUrl(result.url);
+        } else {
+          console.warn("Failed to get profile image URL:", result.error);
+          setProfileImageUrl(null);
         }
-
-        if (profile.id_document_back_url) {
-          const backResult = await getSignedUrl("user-documents", profile.id_document_back_url, 3600);
-          if (backResult.success) {
-            urls.idDocumentBack = backResult.url;
-          } else {
-            console.warn("Failed to get ID document back URL:", backResult.error);
-          }
-        }
-
-        // Priority 2: If no separate front/back URLs, try id_document_url
-        // Check if it's comma-separated (legacy format) or single path
-        if (!urls.idDocumentFront && !urls.idDocumentBack && profile.id_document_url) {
-          // Check if it contains a comma (comma-separated front,back paths)
-          if (profile.id_document_url.includes(',')) {
-            const paths = profile.id_document_url.split(',').map(p => p.trim());
-            // Try to get signed URLs for both paths
-            if (paths[0]) {
-              const frontResult = await getSignedUrl("user-documents", paths[0], 3600);
-              if (frontResult.success) {
-                urls.idDocumentFront = frontResult.url;
-              }
-            }
-            if (paths[1]) {
-              const backResult = await getSignedUrl("user-documents", paths[1], 3600);
-              if (backResult.success) {
-                urls.idDocumentBack = backResult.url;
-              }
-            }
-          } else {
-            // Single path (passport or other single document)
-            const idResult = await getSignedUrl("user-documents", profile.id_document_url, 3600);
-            if (idResult.success) {
-              urls.idDocument = idResult.url;
-            } else {
-              console.warn("Failed to get ID document URL:", idResult.error);
-            }
-          }
-        }
-
-        // Fetch proof of address URL
-        if (profile.proof_of_address_url) {
-          const addressResult = await getSignedUrl("user-documents", profile.proof_of_address_url, 3600);
-          if (addressResult.success) {
-            urls.proofOfAddress = addressResult.url;
-          } else {
-            console.warn("Failed to get proof of address URL:", addressResult.error);
-          }
-        }
-
-        // Fetch profile image URL
-        if (profile.profile_image_url) {
-          const profileImageResult = await getSignedUrl("user-documents", profile.profile_image_url, 3600);
-          if (profileImageResult.success) {
-            urls.profileImage = profileImageResult.url;
-          } else {
-            console.warn("Failed to get profile image URL:", profileImageResult.error);
-          }
-        }
-
-        setDocumentUrls(urls);
       } catch (error) {
-        console.error("Error fetching document URLs:", error);
+        console.error("Error fetching profile image URL:", error);
+        setProfileImageUrl(null);
       } finally {
-        setLoadingDocuments(false);
+        setLoadingProfileImage(false);
       }
     };
 
-    fetchDocumentUrls();
+    fetchProfileImageUrl();
   }, [profile]);
   
   const getUserDisplayName = () => {
@@ -249,10 +177,10 @@ function ProfilePageContent() {
         {/* User Profile Section */}
         <div className="flex flex-col items-center mb-8">
           <div className="relative mb-4">
-            {documentUrls.profileImage ? (
+            {profileImageUrl ? (
               <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-blue-600 shadow-lg">
                 <img
-                  src={documentUrls.profileImage}
+                  src={profileImageUrl}
                   alt="Profile"
                   className="w-full h-full object-cover"
                   onError={(e) => {
@@ -526,257 +454,6 @@ function ProfilePageContent() {
               </CardContent>
             </Card>
 
-            {/* Uploaded Documents Section */}
-            <Card className="mb-6 border-0 shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-blue-600" />
-                  Uploaded Documents
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {loadingDocuments ? (
-                  <div className="text-center py-4">
-                    <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-blue-600 border-t-transparent"></div>
-                    <p className="mt-2 text-xs text-gray-500">Loading documents...</p>
-                  </div>
-                ) : (
-                  <>
-                    {/* ID Document */}
-                    <div>
-                      <p className="text-xs text-gray-500 mb-2">
-                        Government Issued ID
-                        {profile?.document_type && (
-                          <span className="ml-2 text-gray-400">
-                            ({profile.document_type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())})
-                          </span>
-                        )}
-                      </p>
-                      
-                      {/* Card-type documents (front and back) */}
-                      {(documentUrls.idDocumentFront || documentUrls.idDocumentBack) ? (
-                        <div className="space-y-3">
-                          {/* Front Side */}
-                          {documentUrls.idDocumentFront && (
-                            <div className="border-2 border-gray-200 rounded-lg p-4 bg-gray-50">
-                              <div className="flex items-center gap-3">
-                                <div className="w-16 h-16 rounded-lg overflow-hidden border-2 border-blue-300 bg-white flex items-center justify-center">
-                                  <img
-                                    src={documentUrls.idDocumentFront}
-                                    alt="ID Document Front"
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                      e.target.style.display = 'none';
-                                      e.target.nextSibling.style.display = 'flex';
-                                    }}
-                                  />
-                                  <div className="hidden w-full h-full items-center justify-center">
-                                    <FileText className="w-8 h-8 text-blue-500" />
-                                  </div>
-                                </div>
-                                <div className="flex-1">
-                                  <p className="text-sm font-medium text-gray-900">Front Side</p>
-                                  <p className="text-xs text-gray-500">Uploaded</p>
-                                </div>
-                                <div className="flex gap-2">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => window.open(documentUrls.idDocumentFront, '_blank')}
-                                    className="h-8"
-                                  >
-                                    <Eye className="w-4 h-4 mr-1" />
-                                    View
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => {
-                                      const link = document.createElement('a');
-                                      link.href = documentUrls.idDocumentFront;
-                                      link.download = 'id-document-front';
-                                      link.click();
-                                    }}
-                                    className="h-8"
-                                  >
-                                    <Download className="w-4 h-4 mr-1" />
-                                    Download
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                          
-                          {/* Back Side */}
-                          {documentUrls.idDocumentBack && (
-                            <div className="border-2 border-gray-200 rounded-lg p-4 bg-gray-50">
-                              <div className="flex items-center gap-3">
-                                <div className="w-16 h-16 rounded-lg overflow-hidden border-2 border-blue-300 bg-white flex items-center justify-center">
-                                  <img
-                                    src={documentUrls.idDocumentBack}
-                                    alt="ID Document Back"
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                      e.target.style.display = 'none';
-                                      e.target.nextSibling.style.display = 'flex';
-                                    }}
-                                  />
-                                  <div className="hidden w-full h-full items-center justify-center">
-                                    <FileText className="w-8 h-8 text-blue-500" />
-                                  </div>
-                                </div>
-                                <div className="flex-1">
-                                  <p className="text-sm font-medium text-gray-900">Back Side</p>
-                                  <p className="text-xs text-gray-500">Uploaded</p>
-                                </div>
-                                <div className="flex gap-2">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => window.open(documentUrls.idDocumentBack, '_blank')}
-                                    className="h-8"
-                                  >
-                                    <Eye className="w-4 h-4 mr-1" />
-                                    View
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => {
-                                      const link = document.createElement('a');
-                                      link.href = documentUrls.idDocumentBack;
-                                      link.download = 'id-document-back';
-                                      link.click();
-                                    }}
-                                    className="h-8"
-                                  >
-                                    <Download className="w-4 h-4 mr-1" />
-                                    Download
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ) : documentUrls.idDocument ? (
-                        /* Single document (passport) */
-                        <div className="border-2 border-gray-200 rounded-lg p-4 bg-gray-50">
-                          <div className="flex items-center gap-3">
-                            <div className="w-16 h-16 rounded-lg overflow-hidden border-2 border-blue-300 bg-white flex items-center justify-center">
-                              <img
-                                src={documentUrls.idDocument}
-                                alt="ID Document"
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.target.style.display = 'none';
-                                  e.target.nextSibling.style.display = 'flex';
-                                }}
-                              />
-                              <div className="hidden w-full h-full items-center justify-center">
-                                <FileText className="w-8 h-8 text-blue-500" />
-                              </div>
-                            </div>
-                            <div className="flex-1">
-                              <p className="text-sm font-medium text-gray-900">ID Document</p>
-                              <p className="text-xs text-gray-500">Uploaded</p>
-                            </div>
-                            <div className="flex gap-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => window.open(documentUrls.idDocument, '_blank')}
-                                className="h-8"
-                              >
-                                <Eye className="w-4 h-4 mr-1" />
-                                View
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  const link = document.createElement('a');
-                                  link.href = documentUrls.idDocument;
-                                  link.download = 'id-document';
-                                  link.click();
-                                }}
-                                className="h-8"
-                              >
-                                <Download className="w-4 h-4 mr-1" />
-                                Download
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      ) : (profile?.id_document_url || profile?.id_document_front_url || profile?.id_document_back_url) ? (
-                        <p className="text-sm text-gray-500">Document uploaded but unavailable</p>
-                      ) : (
-                        <p className="text-sm text-gray-500">No ID document uploaded</p>
-                      )}
-                    </div>
-
-                    {/* Proof of Address */}
-                    <div>
-                      <p className="text-xs text-gray-500 mb-2">Proof of Address</p>
-                      {profile?.proof_of_address_url ? (
-                        documentUrls.proofOfAddress ? (
-                          <div className="border-2 border-gray-200 rounded-lg p-4 bg-gray-50">
-                            <div className="flex items-center gap-3">
-                              <div className="w-16 h-16 rounded-lg overflow-hidden border-2 border-blue-300 bg-white flex items-center justify-center">
-                                <img
-                                  src={documentUrls.proofOfAddress}
-                                  alt="Proof of Address"
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    e.target.style.display = 'none';
-                                    e.target.nextSibling.style.display = 'flex';
-                                  }}
-                                />
-                                <div className="hidden w-full h-full items-center justify-center">
-                                  <FileText className="w-8 h-8 text-blue-500" />
-                                </div>
-                              </div>
-                              <div className="flex-1">
-                                <p className="text-sm font-medium text-gray-900">Proof of Address</p>
-                                <p className="text-xs text-gray-500">Uploaded</p>
-                              </div>
-                              <div className="flex gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => window.open(documentUrls.proofOfAddress, '_blank')}
-                                  className="h-8"
-                                >
-                                  <Eye className="w-4 h-4 mr-1" />
-                                  View
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => {
-                                    const link = document.createElement('a');
-                                    link.href = documentUrls.proofOfAddress;
-                                    link.download = 'proof-of-address';
-                                    link.click();
-                                  }}
-                                  className="h-8"
-                                >
-                                  <Download className="w-4 h-4 mr-1" />
-                                  Download
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <p className="text-sm text-gray-500">Document uploaded but unavailable</p>
-                        )
-                      ) : (
-                        <p className="text-sm text-gray-500">No proof of address uploaded</p>
-                      )}
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
           </>
         )}
 
