@@ -23,7 +23,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProfile } from "@/lib/hooks/useProfile";
 import { supabase } from "@/lib/supabase/client";
+import { formatCurrency as formatCurrencyUtil } from "@/lib/utils/currency";
 
 const STEPS = [
   { id: 1, title: "From", icon: User },
@@ -34,7 +36,11 @@ const STEPS = [
 function RequestPageContent() {
   const router = useRouter();
   const { user } = useAuth();
+  const { profile } = useProfile();
   const [currentStep, setCurrentStep] = useState(1);
+  
+  // Get user's currency (default to USD)
+  const userCurrency = profile?.currency || user?.user_metadata?.currency || 'USD';
   const [stepDirection, setStepDirection] = useState("forward");
   const [isLoading, setIsLoading] = useState(false);
   
@@ -207,11 +213,7 @@ function RequestPageContent() {
   };
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-    }).format(amount);
+    return formatCurrencyUtil(amount, userCurrency);
   };
 
   const progressPercentage = (currentStep / STEPS.length) * 100;

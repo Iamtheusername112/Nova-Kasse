@@ -64,7 +64,8 @@ function UsersManagementContent() {
   const [bankingFormData, setBankingFormData] = useState({
     account_number: '',
     routing_number: '',
-    account_type: 'checking'
+    account_type: 'checking',
+    currency: 'USD'
   });
   const [savingBanking, setSavingBanking] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
@@ -367,6 +368,7 @@ function UsersManagementContent() {
           account_number: bankingFormData.account_number,
           routing_number: bankingFormData.routing_number,
           account_type: bankingFormData.account_type,
+          currency: bankingFormData.currency,
         }),
       });
 
@@ -386,6 +388,7 @@ function UsersManagementContent() {
         account_number: bankingFormData.account_number,
         routing_number: bankingFormData.routing_number,
         account_type: bankingFormData.account_type,
+        currency: bankingFormData.currency,
       };
       setSelectedUser(updatedUser);
       
@@ -881,7 +884,8 @@ function UsersManagementContent() {
                           setBankingFormData({
                             account_number: selectedUser.account_number || '',
                             routing_number: selectedUser.routing_number || '',
-                            account_type: selectedUser.account_type || 'checking'
+                            account_type: selectedUser.account_type || 'checking',
+                            currency: selectedUser.currency || 'USD'
                           });
                         }}
                       >
@@ -899,7 +903,8 @@ function UsersManagementContent() {
                           setBankingFormData({
                             account_number: '',
                             routing_number: '',
-                            account_type: 'checking'
+                            account_type: 'checking',
+                            currency: 'USD'
                           });
                         }}
                         disabled={savingBanking}
@@ -985,6 +990,21 @@ function UsersManagementContent() {
                         <option value="business">Business</option>
                       </select>
                     </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="text-xs font-medium text-gray-700">
+                        Account Currency <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={bankingFormData.currency}
+                        onChange={(e) => setBankingFormData({ ...bankingFormData, currency: e.target.value })}
+                        className="w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="USD">USD - US Dollar ($)</option>
+                        <option value="EUR">EUR - Euro (€)</option>
+                        <option value="AUD">AUD - Australian Dollar (A$)</option>
+                      </select>
+                      <p className="text-xs text-gray-500">This will affect how balances and transactions are displayed</p>
+                    </div>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1031,6 +1051,12 @@ function UsersManagementContent() {
                     <div className="space-y-1">
                       <p className="text-xs text-gray-500">Account Type</p>
                       <p className="text-sm font-medium capitalize">{selectedUser.account_type || "Not assigned"}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs text-gray-500">Currency</p>
+                      <p className="text-sm font-medium">
+                        {selectedUser.currency ? `${selectedUser.currency} - ${selectedUser.currency === 'USD' ? 'US Dollar' : selectedUser.currency === 'EUR' ? 'Euro' : 'Australian Dollar'}` : 'USD - US Dollar'}
+                      </p>
                     </div>
                   </div>
                 )}

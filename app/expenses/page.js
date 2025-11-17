@@ -34,11 +34,17 @@ import {
 } from "lucide-react";
 import { useTransactions } from "@/lib/hooks/useTransactions";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProfile } from "@/lib/hooks/useProfile";
+import { formatCurrency as formatCurrencyUtil } from "@/lib/utils/currency";
 
 function ExpensesPageContent() {
   const { user } = useAuth();
+  const { profile } = useProfile();
   const { transactions, loading } = useTransactions(100); // Fetch more transactions for analysis
   const [selectedPeriod, setSelectedPeriod] = useState("month");
+  
+  // Get user's currency (default to USD)
+  const userCurrency = profile?.currency || user?.user_metadata?.currency || 'USD';
 
   // Get category icon and color
   const getCategoryInfo = (category) => {
@@ -178,11 +184,7 @@ function ExpensesPageContent() {
   }, [transactions, selectedPeriod]);
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-    }).format(amount);
+    return formatCurrencyUtil(amount, userCurrency);
   };
 
   return (

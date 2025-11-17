@@ -32,6 +32,7 @@ import { useProfile } from "@/lib/hooks/useProfile";
 import { supabase } from "@/lib/supabase/client";
 import { useTransactions } from "@/lib/hooks/useTransactions";
 import { calculateBalance, hasSufficientBalance } from "@/lib/utils/balance";
+import { formatCurrency as formatCurrencyUtil } from "@/lib/utils/currency";
 
 const STEPS = [
   { id: 1, title: "Recipient", icon: User },
@@ -45,6 +46,9 @@ function TransferPageContent() {
   const { user } = useAuth();
   const { profile } = useProfile();
   const { transactions } = useTransactions(1000); // Fetch all transactions for balance calculation
+  
+  // Get user's currency (default to USD)
+  const userCurrency = profile?.currency || user?.user_metadata?.currency || 'USD';
   const [currentStep, setCurrentStep] = useState(1);
   const [stepDirection, setStepDirection] = useState("forward");
   const [isLoading, setIsLoading] = useState(false);
@@ -197,7 +201,7 @@ function TransferPageContent() {
     const currentBalance = calculateBalance(transactions);
     
     if (!hasSufficientBalance(transactions, transferAmount)) {
-      toast.error(`Insufficient balance. Your current balance is ${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(currentBalance)}`);
+      toast.error(`Insufficient balance. Your current balance is ${formatCurrencyUtil(currentBalance, userCurrency)}`);
       setIsLoading(false);
       return;
     }
@@ -249,11 +253,7 @@ function TransferPageContent() {
   };
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-    }).format(amount);
+    return formatCurrencyUtil(amount, userCurrency);
   };
 
   const progressPercentage = (currentStep / STEPS.length) * 100;

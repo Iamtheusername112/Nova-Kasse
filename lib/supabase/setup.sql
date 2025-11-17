@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS profiles (
   account_number TEXT UNIQUE,
   routing_number TEXT,
   account_type TEXT DEFAULT 'checking',
+  currency TEXT DEFAULT 'USD' CHECK (currency IN ('USD', 'EUR', 'AUD')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -55,7 +56,7 @@ BEGIN
   INSERT INTO public.profiles (
     id, full_name, phone, date_of_birth, address, city, state, zip_code, country, 
     security_pin, document_type, id_document_url, id_document_front_url, 
-    id_document_back_url, proof_of_address_url, account_number, routing_number, account_type
+    id_document_back_url, proof_of_address_url, account_number, routing_number, account_type, currency
   )
   VALUES (
     NEW.id,
@@ -80,7 +81,8 @@ BEGIN
     NULLIF(TRIM(NEW.raw_user_meta_data->>'proof_of_address_url'), ''),
     NULLIF(TRIM(NEW.raw_user_meta_data->>'account_number'), ''),
     NULLIF(TRIM(NEW.raw_user_meta_data->>'routing_number'), ''),
-    NULLIF(TRIM(NEW.raw_user_meta_data->>'account_type'), '')
+    NULLIF(TRIM(NEW.raw_user_meta_data->>'account_type'), ''),
+    COALESCE(NULLIF(TRIM(NEW.raw_user_meta_data->>'currency'), ''), 'USD')
   )
   ON CONFLICT (id) 
   DO UPDATE SET
@@ -101,6 +103,7 @@ BEGIN
     account_number = COALESCE(EXCLUDED.account_number, profiles.account_number),
     routing_number = COALESCE(EXCLUDED.routing_number, profiles.routing_number),
     account_type = COALESCE(EXCLUDED.account_type, profiles.account_type),
+    currency = COALESCE(EXCLUDED.currency, profiles.currency, 'USD'),
     updated_at = NOW();
   RETURN NEW;
 END;

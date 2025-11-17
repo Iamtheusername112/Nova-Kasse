@@ -76,7 +76,9 @@ function TransactionsManagementContent() {
   };
 
   const validateForm = () => {
-    if (!transactionData.amount || parseFloat(transactionData.amount) <= 0) {
+    const amount = parseFloat(transactionData.amount);
+    
+    if (!transactionData.amount || isNaN(amount) || amount <= 0) {
       toast.error("Please enter a valid amount greater than 0");
       return false;
     }

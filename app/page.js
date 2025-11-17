@@ -28,15 +28,21 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTransactions } from "@/lib/hooks/useTransactions";
 import { useNotifications } from "@/lib/hooks/useNotifications";
+import { useProfile } from "@/lib/hooks/useProfile";
 import { calculateBalance as calculateBalanceUtil } from "@/lib/utils/balance";
+import { formatCurrency as formatCurrencyUtil } from "@/lib/utils/currency";
 
 function HomePageContent() {
   const { user } = useAuth();
   const router = useRouter();
   const { transactions, loading: transactionsLoading } = useTransactions(1000); // Fetch all transactions for accurate balance calculation
   const { unreadCount } = useNotifications();
+  const { profile } = useProfile();
   const [balanceVisible, setBalanceVisible] = useState(true);
   const [mounted, setMounted] = useState(false);
+  
+  // Get user's currency (default to USD)
+  const userCurrency = profile?.currency || user?.user_metadata?.currency || 'USD';
 
   useEffect(() => {
     setMounted(true);
@@ -130,11 +136,7 @@ function HomePageContent() {
 
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-    }).format(amount);
+    return formatCurrencyUtil(amount, userCurrency);
   };
 
   return (

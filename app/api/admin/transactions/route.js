@@ -100,14 +100,19 @@ export async function POST(request) {
     // Create transaction
     // For deposits (credits), amount should be positive
     // For withdrawals (debits), amount should be negative
+    // Ensure amount doesn't exceed DECIMAL(10, 2) precision
+    const amountValue = parseFloat(amount);
     const transactionAmount = type === 'deposit' 
-      ? Math.abs(parseFloat(amount))
-      : -Math.abs(parseFloat(amount));
+      ? Math.abs(amountValue)
+      : -Math.abs(amountValue);
+    
+    // Round to 2 decimal places to match DECIMAL(10, 2) precision
+    const roundedAmount = Math.round(transactionAmount * 100) / 100;
 
     const transactionData = {
       user_id,
       type,
-      amount: transactionAmount,
+      amount: roundedAmount, // Use rounded amount to match DECIMAL(10, 2) precision
       description: description.trim(),
       note: note?.trim() || null,
       category: category || 'admin_adjustment',
@@ -138,12 +143,12 @@ export async function POST(request) {
       user_id,
       type: type === 'deposit' ? 'deposit' : 'transaction',
       title: type === 'deposit' 
-        ? `Account Credited: $${Math.abs(transactionAmount).toFixed(2)}`
-        : `Account Debited: $${Math.abs(transactionAmount).toFixed(2)}`,
+        ? `Account Credited: $${Math.abs(roundedAmount).toFixed(2)}`
+        : `Account Debited: $${Math.abs(roundedAmount).toFixed(2)}`,
       message: description,
       data: {
         transaction_id: transaction.id,
-        amount: transactionAmount,
+        amount: roundedAmount,
         type,
         status: status || 'completed',
         category: category || 'admin_adjustment',

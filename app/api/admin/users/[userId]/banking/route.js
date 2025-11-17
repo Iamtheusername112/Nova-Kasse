@@ -44,7 +44,7 @@ export async function PATCH(request, { params }) {
     });
 
     const body = await request.json();
-    const { account_number, routing_number, account_type } = body;
+    const { account_number, routing_number, account_type, currency } = body;
 
     // Validate account number (should be 10 digits)
     if (account_number && !/^\d{10}$/.test(account_number)) {
@@ -89,11 +89,20 @@ export async function PATCH(request, { params }) {
       }
     }
 
+    // Validate currency if provided
+    if (currency && !['USD', 'EUR', 'AUD'].includes(currency)) {
+      return Response.json(
+        { error: 'Invalid currency. Must be USD, EUR, or AUD' },
+        { status: 400 }
+      );
+    }
+
     // Update profile
     const updateData = {};
     if (account_number !== undefined) updateData.account_number = account_number;
     if (routing_number !== undefined) updateData.routing_number = routing_number;
     if (account_type !== undefined) updateData.account_type = account_type;
+    if (currency !== undefined) updateData.currency = currency;
 
     const { data, error } = await supabaseAdmin
       .from('profiles')
@@ -111,7 +120,7 @@ export async function PATCH(request, { params }) {
     }
 
     // Also update user metadata for consistency
-    if (account_number || routing_number || account_type) {
+    if (account_number || routing_number || account_type || currency) {
       const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(userId);
       if (authUser?.user) {
         const updatedMetadata = {
@@ -119,6 +128,7 @@ export async function PATCH(request, { params }) {
           account_number: account_number || authUser.user.user_metadata?.account_number,
           routing_number: routing_number || authUser.user.user_metadata?.routing_number,
           account_type: account_type || authUser.user.user_metadata?.account_type || 'checking',
+          currency: currency || authUser.user.user_metadata?.currency || 'USD',
         };
 
         await supabaseAdmin.auth.admin.updateUserById(userId, {
