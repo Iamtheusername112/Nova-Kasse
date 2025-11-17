@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Header from "@/components/layout/Header";
 import BottomNavigation from "@/components/layout/BottomNavigation";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
@@ -25,9 +26,14 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTransactions } from "@/lib/hooks/useTransactions";
+import { useNotifications } from "@/lib/hooks/useNotifications";
 
 function HomePageContent() {
   const { user } = useAuth();
+  const router = useRouter();
+  const { transactions, loading: transactionsLoading } = useTransactions(10);
+  const { unreadCount } = useNotifications();
   const [balanceVisible, setBalanceVisible] = useState(true);
   const [mounted, setMounted] = useState(false);
 
@@ -35,26 +41,93 @@ function HomePageContent() {
     setMounted(true);
   }, []);
 
-  // Mock data - replace with real data from your backend
-  const accountBalance = 12450.75;
-  const availableBalance = 11500.00;
-  const monthlyIncome = 8500.00;
-  const monthlyExpenses = 3200.50;
+  // Calculate balance and monthly stats from transactions
+  const calculateBalance = () => {
+    // Default starting balance - in production, this should come from an account balance table
+    const startingBalance = 12450.75;
+    
+    if (!transactions || transactions.length === 0) {
+      return {
+        accountBalance: startingBalance,
+        availableBalance: startingBalance * 0.92,
+        monthlyIncome: 0,
+        monthlyExpenses: 0,
+      };
+    }
+
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    
+    // Get all transactions for monthly calculation (we need to fetch more than displayed)
+    const monthlyTransactions = transactions.filter(
+      (t) => t.created_at && new Date(t.created_at) >= startOfMonth
+    );
+
+    const monthlyIncome = monthlyTransactions
+      .filter((t) => t.type === 'income' || t.type === 'deposit')
+      .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+
+    const monthlyExpenses = monthlyTransactions
+      .filter((t) => t.type === 'expense' || t.type === 'payment' || t.type === 'transfer' || t.type === 'withdrawal')
+      .reduce((sum, t) => sum + Math.abs(parseFloat(t.amount || 0)), 0);
+
+    // Calculate total balance from all transactions
+    const totalIncome = transactions
+      .filter((t) => t.type === 'income' || t.type === 'deposit')
+      .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+    
+    const totalExpenses = transactions
+      .filter((t) => t.type === 'expense' || t.type === 'payment' || t.type === 'transfer' || t.type === 'withdrawal')
+      .reduce((sum, t) => sum + Math.abs(parseFloat(t.amount || 0)), 0);
+
+    const accountBalance = startingBalance + totalIncome - totalExpenses;
+    const availableBalance = Math.max(0, accountBalance * 0.92); // Assuming 8% reserved
+
+    return {
+      accountBalance: Math.max(0, accountBalance),
+      availableBalance,
+      monthlyIncome,
+      monthlyExpenses,
+    };
+  };
+
+  const balanceData = calculateBalance();
+  const accountBalance = balanceData.accountBalance;
+  const availableBalance = balanceData.availableBalance;
+  const monthlyIncome = balanceData.monthlyIncome;
+  const monthlyExpenses = balanceData.monthlyExpenses;
   
   const quickActions = [
-    { icon: Send, label: "Send", color: "bg-blue-600", delay: "delay-100" },
-    { icon: ArrowDownLeft, label: "Request", color: "bg-blue-600", delay: "delay-200" },
-    { icon: CreditCard, label: "Pay", color: "bg-blue-600", delay: "delay-300" },
-    { icon: MoreHorizontal, label: "More", color: "bg-blue-600", delay: "delay-400" },
+    { icon: Send, label: "Send", color: "bg-blue-600", delay: "delay-100", href: "/transfer" },
+    { icon: ArrowDownLeft, label: "Request", color: "bg-blue-600", delay: "delay-200", href: "#" },
+    { icon: CreditCard, label: "Pay", color: "bg-blue-600", delay: "delay-300", href: "#" },
+    { icon: MoreHorizontal, label: "More", color: "bg-blue-600", delay: "delay-400", href: "#" },
   ];
 
-  const recentTransactions = [
-    { id: 1, name: "Shell Gas Station", category: "Fuel", amount: -35.88, date: "Today", icon: Fuel, color: "bg-gray-600" },
-    { id: 2, name: "Amazon", category: "Shopping", amount: -70.00, date: "Yesterday", icon: ShoppingBag, color: "bg-gray-600" },
-    { id: 3, name: "Starbucks", category: "Food", amount: -12.50, date: "2 days ago", icon: Coffee, color: "bg-gray-600" },
-    { id: 4, name: "Salary Deposit", category: "Income", amount: 8500.00, date: "5 days ago", icon: CircleDollarSign, color: "bg-green-600" },
-    { id: 5, name: "Netflix", category: "Entertainment", amount: -15.99, date: "1 week ago", icon: Film, color: "bg-gray-600" },
-  ];
+  // Map transaction types to icons and colors
+  const getTransactionIcon = (type, category) => {
+    const categoryLower = category?.toLowerCase() || '';
+    if (categoryLower.includes('fuel') || categoryLower.includes('gas')) return Fuel;
+    if (categoryLower.includes('shopping') || categoryLower.includes('store')) return ShoppingBag;
+    if (categoryLower.includes('food') || categoryLower.includes('restaurant') || categoryLower.includes('coffee')) return Coffee;
+    if (type === 'income' || type === 'deposit') return CircleDollarSign;
+    if (categoryLower.includes('entertainment') || categoryLower.includes('movie')) return Film;
+    return ShoppingBag; // Default icon
+  };
+
+  const formatTransactionDate = (dateString) => {
+    if (!dateString) return "Unknown";
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now - date);
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) return "Today";
+    if (diffDays === 1) return "Yesterday";
+    if (diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)} week${Math.floor(diffDays / 7) !== 1 ? 's' : ''} ago`;
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
 
 
   const formatCurrency = (amount) => {
@@ -67,7 +140,12 @@ function HomePageContent() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-purple-50/20 pb-20">
-      <Header title="Dashboard" rightIcon="bell" />
+      <Header 
+        title="Dashboard" 
+        rightIcon="bell" 
+        onRightClick={() => router.push("/notifications")}
+        badgeCount={unreadCount}
+      />
       
       <div className="px-4 py-6 space-y-6">
         {/* Account Balance Card - Premium Design */}
@@ -123,6 +201,7 @@ function HomePageContent() {
             return (
               <button
                 key={index}
+                onClick={() => action.href && action.href !== "#" && router.push(action.href)}
                 className={`group flex flex-col items-center gap-2 p-4 rounded-2xl bg-white/80 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 hover:-translate-y-1 ${action.delay}`}
               >
                 <div className={`w-12 h-12 rounded-xl ${action.color} flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform duration-300`}>
@@ -195,43 +274,61 @@ function HomePageContent() {
             </Button>
           </div>
           
-          <div className="space-y-3">
-            {recentTransactions.map((transaction, index) => {
-              const Icon = transaction.icon;
-              const isIncome = transaction.amount > 0;
-              
-              return (
-                <Card 
-                  key={transaction.id} 
-                  className="border-0 shadow-md bg-white/80 backdrop-blur-sm rounded-xl hover:shadow-lg transition-all duration-300 hover:scale-[1.02] animate-slide-in-up"
-                  style={{ animationDelay: `${index * 100}ms` }}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3 flex-1">
-                        <div className={`w-12 h-12 rounded-xl ${transaction.color} flex items-center justify-center shadow-md`}>
-                          <Icon className="w-6 h-6 text-white" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-semibold text-gray-900 truncate">{transaction.name}</h4>
-                          <div className="flex items-center gap-2 mt-1">
-                            <p className="text-xs text-gray-500">{transaction.category}</p>
-                            <span className="text-gray-300">•</span>
-                            <p className="text-xs text-gray-500">{transaction.date}</p>
+          {transactionsLoading ? (
+            <div className="text-center py-8">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div>
+              <p className="mt-2 text-sm text-gray-500">Loading transactions...</p>
+            </div>
+          ) : transactions && transactions.length > 0 ? (
+            <div className="space-y-3">
+              {transactions.map((transaction, index) => {
+                const Icon = getTransactionIcon(transaction.type, transaction.category);
+                const isIncome = transaction.type === 'income' || transaction.type === 'deposit';
+                const amount = parseFloat(transaction.amount || 0);
+                
+                return (
+                  <Card 
+                    key={transaction.id} 
+                    className="border-0 shadow-md bg-white/80 backdrop-blur-sm rounded-xl hover:shadow-lg transition-all duration-300 hover:scale-[1.02] animate-slide-in-up"
+                    style={{ animationDelay: `${index * 100}ms` }}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 flex-1">
+                          <div className={`w-12 h-12 rounded-xl ${isIncome ? 'bg-green-600' : 'bg-gray-600'} flex items-center justify-center shadow-md`}>
+                            <Icon className="w-6 h-6 text-white" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-gray-900 truncate">
+                              {transaction.recipient_name || transaction.description || transaction.category || 'Transaction'}
+                            </h4>
+                            <div className="flex items-center gap-2 mt-1">
+                              <p className="text-xs text-gray-500">{transaction.category || transaction.type}</p>
+                              <span className="text-gray-300">•</span>
+                              <p className="text-xs text-gray-500">{formatTransactionDate(transaction.created_at)}</p>
+                            </div>
                           </div>
                         </div>
+                        <div className="text-right">
+                          <p className={`text-lg font-bold ${isIncome ? 'text-green-600' : 'text-gray-900'}`}>
+                            {isIncome ? '+' : '-'}{formatCurrency(Math.abs(amount))}
+                          </p>
+                          {transaction.status === 'pending' && (
+                            <p className="text-xs text-yellow-600 font-medium">Pending</p>
+                          )}
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className={`text-lg font-bold ${isIncome ? 'text-green-600' : 'text-gray-900'}`}>
-                          {isIncome ? '+' : ''}{formatCurrency(Math.abs(transaction.amount))}
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-gray-500">No transactions yet</p>
+              <p className="text-sm text-gray-400 mt-1">Your recent transactions will appear here</p>
+            </div>
+          )}
         </div>
       </div>
 
