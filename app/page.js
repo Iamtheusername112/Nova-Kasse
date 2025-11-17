@@ -34,6 +34,7 @@ import { calculateBalance as calculateBalanceUtil } from "@/lib/utils/balance";
 import { formatCurrency as formatCurrencyUtil } from "@/lib/utils/currency";
 import AccountBlockedOverlay from "@/components/account/AccountBlockedOverlay";
 import TransactionDetailsModal from "@/components/transactions/TransactionDetailsModal";
+import LoadingScreen from "@/components/ui/loading-screen";
 
 function HomePageContent() {
   const { user } = useAuth();
@@ -298,9 +299,8 @@ function HomePageContent() {
           </div>
           
           {transactionsLoading ? (
-            <div className="text-center py-8">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div>
-              <p className="mt-2 text-sm text-gray-500">Loading transactions...</p>
+            <div className="py-12">
+              <LoadingScreen message="Loading Transactions..." subMessage="Fetching your transaction history" />
             </div>
           ) : transactions && transactions.length > 0 ? (
             <div className="space-y-3">

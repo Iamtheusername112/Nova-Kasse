@@ -23,6 +23,7 @@ import {
 import { useNotifications } from "@/lib/hooks/useNotifications";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import LoadingScreen from "@/components/ui/loading-screen";
 
 function NotificationsPageContent() {
   const router = useRouter();
@@ -119,10 +120,7 @@ function NotificationsPageContent() {
         )}
 
         {loading ? (
-          <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div>
-            <p className="mt-2 text-sm text-gray-500">Loading notifications...</p>
-          </div>
+          <LoadingScreen message="Loading Notifications..." subMessage="Fetching your activity updates" />
         ) : notifications.length === 0 ? (
           <div className="text-center py-12">
             <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">

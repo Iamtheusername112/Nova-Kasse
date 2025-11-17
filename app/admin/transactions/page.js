@@ -23,6 +23,7 @@ import {
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useUsers } from "@/lib/hooks/useUsers";
+import LoadingScreen from "@/components/ui/loading-screen";
 
 function TransactionsManagementContent() {
   const router = useRouter();

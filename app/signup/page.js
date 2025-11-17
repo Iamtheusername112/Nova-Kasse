@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { ChevronLeft, ChevronRight, Check, Lock, User, MapPin, Shield, FileText, Upload, CreditCard, FileCheck } from "lucide-react";
 import FileUpload from "@/components/ui/file-upload";
+import LoadingScreen from "@/components/ui/loading-screen";
 
 const STEPS = [
   { number: 1, title: "Account Credentials", icon: Lock, color: "from-blue-500 to-cyan-500" },
@@ -259,6 +260,7 @@ export default function SignUpPage() {
     const result = await signUp(formData.email, formData.password, userDataToSend);
 
     if (result.success) {
+      // Keep loading state true while showing confetti and redirecting
       // Dynamically import confetti to avoid SSR issues
       import('canvas-confetti').then((confettiModule) => {
         const confetti = confettiModule.default;
@@ -305,6 +307,7 @@ export default function SignUpPage() {
 
       // Wait for confetti animation, then redirect to dashboard
       setTimeout(() => {
+        setIsLoading(false);
         router.push("/");
       }, 2500);
     } else {
@@ -314,18 +317,21 @@ export default function SignUpPage() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-bg flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
-          <p className="mt-4 text-white font-medium">Loading...</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen message="Initializing..." subMessage="Please wait" />;
   }
 
   if (user) {
     return null;
+  }
+
+  // Show loading screen during account creation
+  if (isLoading) {
+    return (
+      <LoadingScreen 
+        message="Creating Your Account..." 
+        subMessage="Please wait while we set up your banking profile"
+      />
+    );
   }
 
   const progressPercentage = (currentStep / STEPS.length) * 100;

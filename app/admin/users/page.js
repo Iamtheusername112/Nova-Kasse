@@ -34,6 +34,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { useUsers } from "@/lib/hooks/useUsers";
+import LoadingScreen from "@/components/ui/loading-screen";
 
 function UsersManagementContent() {
   const router = useRouter();
@@ -623,14 +624,7 @@ function UsersManagementContent() {
 
           {/* Users Table */}
           {loading ? (
-            <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-              <CardContent className="p-8">
-                <div className="text-center">
-                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div>
-                  <p className="mt-4 text-gray-600">Loading users...</p>
-                </div>
-              </CardContent>
-            </Card>
+            <LoadingScreen message="Loading Users..." subMessage="Fetching user data from database" />
           ) : error ? (
             <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
               <CardContent className="p-8">

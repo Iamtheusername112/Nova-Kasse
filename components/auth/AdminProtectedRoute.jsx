@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Shield, Loader2 } from "lucide-react";
 import { isAdmin } from "@/lib/utils/admin";
+import LoadingScreen from "@/components/ui/loading-screen";
 
 export default function AdminProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -35,16 +36,7 @@ export default function AdminProtectedRoute({ children }) {
   }, [user, loading, router]);
 
   if (loading || checking) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-purple-50/20 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 mb-4">
-            <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-          </div>
-          <p className="text-gray-600 font-medium">Verifying admin access...</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen message="Verifying Admin Access..." subMessage="Checking your permissions" />;
   }
 
   if (!isAuthorized) {

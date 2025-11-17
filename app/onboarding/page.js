@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { SkipForward, ArrowRight } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import LoadingScreen from "@/components/ui/loading-screen";
 
 export default function OnboardingPage() {
   const { user, loading } = useAuth();
@@ -26,14 +27,7 @@ export default function OnboardingPage() {
   }, []);
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-bg flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
-          <p className="mt-4 text-white font-medium">Loading...</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen message="Loading..." subMessage="Please wait" />;
   }
 
   return (

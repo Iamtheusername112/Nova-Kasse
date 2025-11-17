@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import { Mail, Lock, ArrowRight } from "lucide-react";
+import LoadingScreen from "@/components/ui/loading-screen";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -36,14 +37,11 @@ export default function LoginPage() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-bg flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
-          <p className="mt-4 text-white font-medium">Loading...</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen message="Initializing..." subMessage="Please wait" />;
+  }
+
+  if (isLoading) {
+    return <LoadingScreen message="Signing In..." subMessage="Please wait while we authenticate you" />;
   }
 
   if (user) {

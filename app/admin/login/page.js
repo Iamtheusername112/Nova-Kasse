@@ -9,6 +9,7 @@ import { Mail, Lock, Shield, ArrowRight } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { isAdmin } from "@/lib/utils/admin";
+import LoadingScreen from "@/components/ui/loading-screen";
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState("");
@@ -138,14 +139,11 @@ export default function AdminLoginPage() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
-          <p className="mt-4 text-white font-medium">Loading...</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen message="Initializing Admin Portal..." subMessage="Please wait" />;
+  }
+
+  if (isLoading) {
+    return <LoadingScreen message="Signing In..." subMessage="Verifying admin credentials" />;
   }
 
   // Don't render if user is already logged in as admin

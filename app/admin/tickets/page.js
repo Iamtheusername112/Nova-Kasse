@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import LoadingScreen from "@/components/ui/loading-screen";
 
 function TicketsManagementContent() {
   const router = useRouter();
@@ -272,14 +273,7 @@ function TicketsManagementContent() {
 
           {/* Tickets List */}
           {loading ? (
-            <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-              <CardContent className="p-8">
-                <div className="text-center">
-                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div>
-                  <p className="mt-4 text-gray-600">Loading tickets...</p>
-                </div>
-              </CardContent>
-            </Card>
+            <LoadingScreen message="Loading Tickets..." subMessage="Fetching support tickets from users" />
           ) : filteredTickets.length === 0 ? (
             <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
               <CardContent className="p-8 text-center">

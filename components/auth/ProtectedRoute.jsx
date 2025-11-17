@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import LoadingScreen from "@/components/ui/loading-screen";
 
 export default function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -15,14 +16,7 @@ export default function ProtectedRoute({ children }) {
   }, [user, loading, router]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen message="Authenticating..." subMessage="Please wait while we verify your session" />;
   }
 
   if (!user) {

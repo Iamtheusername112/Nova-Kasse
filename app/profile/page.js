@@ -13,6 +13,7 @@ import { getSignedUrl } from "@/lib/utils/storage";
 import { uploadFile } from "@/lib/utils/upload";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase/client";
+import LoadingScreen from "@/components/ui/loading-screen";
 
 function ProfilePageContent() {
   const { user, signOut } = useAuth();
@@ -282,10 +283,7 @@ function ProfilePageContent() {
 
         {/* KYC Information Section */}
         {profileLoading ? (
-          <div className="text-center py-8">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div>
-            <p className="mt-2 text-gray-600">Loading profile data...</p>
-          </div>
+          <LoadingScreen message="Loading Profile..." subMessage="Fetching your account information" />
         ) : (
           <>
             <Card className="mb-6 border-0 shadow-sm">
