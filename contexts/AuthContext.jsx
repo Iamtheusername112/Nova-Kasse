@@ -428,7 +428,10 @@ export const AuthProvider = ({ children }) => {
         proofOfAddress: userData.proofOfAddress ? { name: userData.proofOfAddress.name, size: userData.proofOfAddress.size, type: userData.proofOfAddress.type } : null,
       });
 
-      if ((userData.idDocument || userData.idDocumentFront || userData.idDocumentBack || userData.proofOfAddress) && currentSession) {
+      // Ensure we have files and session before attempting upload
+      const hasFiles = !!(userData.idDocument || userData.idDocumentFront || userData.idDocumentBack || userData.proofOfAddress);
+      
+      if (hasFiles && currentSession) {
         try {
           const userId = authData.user.id;
           const timestamp = Date.now();
@@ -439,8 +442,23 @@ export const AuthProvider = ({ children }) => {
             hasSession: !!currentSession,
             authUid: currentSession?.user?.id,
             documentType: userData.documentType,
-            isCardType
+            isCardType,
+            sessionAccessToken: currentSession?.access_token ? "Present" : "Missing"
           });
+
+          // Validate files before upload
+          if (isCardType) {
+            if (!userData.idDocumentFront || !userData.idDocumentBack) {
+              console.error("Card-type document requires both front and back files");
+              toast.error("Please upload both front and back sides of your document");
+            }
+          } else if (userData.documentType === 'passport' && !userData.idDocument) {
+            console.error("Passport document file is missing");
+            toast.error("Please upload your passport document");
+          } else if (userData.documentType === 'proof_of_address' && !userData.proofOfAddress) {
+            console.error("Proof of address file is missing");
+            toast.error("Please upload your proof of address document");
+          }
 
           // Handle card-type documents (front and back)
           if (isCardType) {
@@ -718,8 +736,14 @@ export const AuthProvider = ({ children }) => {
         console.log("Verified raw metadata:", verifyUser.raw_user_meta_data);
       }
 
-      toast.success("Account created successfully! You can now sign in.");
-      return { success: true, data: authData };
+      // If we have a session, update user state so the app knows the user is logged in
+      if (currentSession && authData.user) {
+        setSession(currentSession);
+        setUser(authData.user);
+      }
+
+      // Don't show toast here - let the signup page handle the success message with confetti
+      return { success: true, data: authData, session: currentSession };
     } catch (error) {
       console.error("Signup error:", error);
       console.error("Error stack:", error.stack);

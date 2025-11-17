@@ -56,9 +56,8 @@ export default function SignUpPage() {
   });
 
   useEffect(() => {
-    if (!loading && user) {
-      router.push("/");
-    }
+    // Don't auto-redirect if we're in the signup flow
+    // Let the handleSubmit handle the redirect after successful signup
   }, [user, loading, router]);
 
   const updateFormData = (field, value) => {
@@ -205,6 +204,21 @@ export default function SignUpPage() {
     // For card-type documents, use front/back, otherwise use single document
     const isCardType = ['driver_license', 'national_id', 'state_id'].includes(formData.documentType);
     
+    // Validate files are File objects before sending
+    const validateFile = (file) => {
+      if (!file) return null;
+      if (file instanceof File) {
+        // Check file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+          toast.error(`File ${file.name} is too large. Maximum size is 5MB.`);
+          return null;
+        }
+        return file;
+      }
+      console.warn("Invalid file object:", file);
+      return null;
+    };
+    
     const userDataToSend = {
       fullName: formData.fullName?.trim() || null,
       phone: formData.phone?.trim() || null,
@@ -216,11 +230,11 @@ export default function SignUpPage() {
       country: formData.country || "United States",
       securityPin: formData.securityPin || null,
       documentType: formData.documentType || null,
-      // For card types, send front and back separately
-      idDocument: isCardType ? null : (formData.idDocument || null),
-      idDocumentFront: isCardType ? formData.idDocumentFront : null,
-      idDocumentBack: isCardType ? formData.idDocumentBack : null,
-      proofOfAddress: formData.documentType === 'proof_of_address' ? formData.proofOfAddress : null,
+      // For card types, send front and back separately (validate files)
+      idDocument: isCardType ? null : validateFile(formData.idDocument),
+      idDocumentFront: isCardType ? validateFile(formData.idDocumentFront) : null,
+      idDocumentBack: isCardType ? validateFile(formData.idDocumentBack) : null,
+      proofOfAddress: formData.documentType === 'proof_of_address' ? validateFile(formData.proofOfAddress) : null,
     };
 
     console.log("=== SIGNUP DATA ===");
@@ -245,15 +259,58 @@ export default function SignUpPage() {
     const result = await signUp(formData.email, formData.password, userDataToSend);
 
     if (result.success) {
-      toast.success("Account created successfully! Redirecting to login...");
+      // Dynamically import confetti to avoid SSR issues
+      import('canvas-confetti').then((confettiModule) => {
+        const confetti = confettiModule.default;
+        
+        // Trigger confetti animation
+        const duration = 3000;
+        const animationEnd = Date.now() + duration;
+        const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+
+        function randomInRange(min, max) {
+          return Math.random() * (max - min) + min;
+        }
+
+        const interval = setInterval(function() {
+          const timeLeft = animationEnd - Date.now();
+
+          if (timeLeft <= 0) {
+            return clearInterval(interval);
+          }
+
+          const particleCount = 50 * (timeLeft / duration);
+          
+          // Launch confetti from both sides
+          confetti({
+            ...defaults,
+            particleCount,
+            origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 }
+          });
+          confetti({
+            ...defaults,
+            particleCount,
+            origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 }
+          });
+        }, 250);
+      }).catch((err) => {
+        console.warn("Could not load confetti:", err);
+      });
+
+      // Show welcome message
+      toast.success(`Welcome to Nova Kasse, ${formData.fullName?.split(' ')[0] || 'there'}! 🎉`, {
+        description: "Your account has been created successfully. Redirecting to your dashboard...",
+        duration: 3000,
+      });
+
+      // Wait for confetti animation, then redirect to dashboard
       setTimeout(() => {
-        router.push("/login");
-      }, 1500);
+        router.push("/");
+      }, 2500);
     } else {
       console.error("Signup failed:", result.error);
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
   };
 
   if (loading) {

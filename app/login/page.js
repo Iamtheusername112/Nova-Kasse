@@ -61,12 +61,12 @@ export default function LoginPage() {
 
       <div className="w-full max-w-md relative z-10 animate-scale-in">
         {/* Logo/Brand */}
-        <div className="text-center mb-8 animate-fade-in">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-white/20 backdrop-blur-xl mb-4 shadow-premium">
-            <div className="text-3xl font-bold text-white">NK</div>
+        <div className="text-center mb-8 animate-fade-in px-4">
+          <div className="inline-flex items-center justify-center w-28 h-28 rounded-2xl bg-white mb-6 shadow-2xl border-4 border-white/80 backdrop-blur-md">
+            <div className="text-5xl font-black text-gray-900">NK</div>
           </div>
-          <h1 className="text-4xl font-bold text-white mb-2">Welcome Back</h1>
-          <p className="text-white/90">Sign in to your Nova Kasse account</p>
+          <h1 className="text-5xl md:text-6xl font-black text-white mb-4" style={{ textShadow: '3px 3px 12px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.3)' }}>Welcome Back</h1>
+          <p className="text-white text-xl font-bold" style={{ textShadow: '2px 2px 8px rgba(0,0,0,0.4), 0 0 10px rgba(0,0,0,0.2)' }}>Sign in to your Nova Kasse account</p>
         </div>
 
         {/* Login Card */}
