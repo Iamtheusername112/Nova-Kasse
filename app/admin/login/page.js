@@ -10,6 +10,7 @@ import { supabase } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { isAdmin } from "@/lib/utils/admin";
 import LoadingScreen from "@/components/ui/loading-screen";
+import { useMinimumLoadingTime } from "@/lib/hooks/useMinimumLoadingTime";
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState("");
@@ -18,6 +19,8 @@ export default function AdminLoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const { user, loading } = useAuth();
   const router = useRouter();
+  const displayLoading = useMinimumLoadingTime(loading, 3000);
+  const displayIsLoading = useMinimumLoadingTime(isLoading, 3000);
 
   useEffect(() => {
     if (!loading && user) {
@@ -138,11 +141,11 @@ export default function AdminLoginPage() {
     }
   };
 
-  if (loading) {
+  if (displayLoading) {
     return <LoadingScreen message="Initializing Admin Portal..." subMessage="Please wait" />;
   }
 
-  if (isLoading) {
+  if (displayIsLoading) {
     return <LoadingScreen message="Signing In..." subMessage="Verifying admin credentials" />;
   }
 

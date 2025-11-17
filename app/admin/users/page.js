@@ -74,6 +74,23 @@ function UsersManagementContent() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [pendingBankingData, setPendingBankingData] = useState(null);
   const [blockingUser, setBlockingUser] = useState(false);
+  const [editingPersonalInfo, setEditingPersonalInfo] = useState(false);
+  const [editingAddress, setEditingAddress] = useState(false);
+  const [personalInfoFormData, setPersonalInfoFormData] = useState({
+    email: '',
+    full_name: '',
+    phone: '',
+    date_of_birth: '',
+    security_pin: ''
+  });
+  const [addressFormData, setAddressFormData] = useState({
+    address: '',
+    city: '',
+    state: '',
+    zip_code: '',
+    country: ''
+  });
+  const [savingCredentials, setSavingCredentials] = useState(false);
 
   // Filter users based on search and status
   const filteredUsers = (users || []).filter((user) => {
@@ -111,6 +128,27 @@ function UsersManagementContent() {
     setSelectedUser(user);
     setShowUserDetails(true);
     setLoadingDocuments(true);
+    
+    // Initialize form data with current user values
+    setPersonalInfoFormData({
+      email: user.email || '',
+      full_name: user.full_name || '',
+      phone: user.phone || '',
+      date_of_birth: user.date_of_birth || '',
+      security_pin: '' // Don't show PIN in form, user needs to enter new one
+    });
+    setAddressFormData({
+      address: user.address || '',
+      city: user.city || '',
+      state: user.state || '',
+      zip_code: user.zip_code || '',
+      country: user.country || ''
+    });
+    
+    // Reset edit states
+    setEditingPersonalInfo(false);
+    setEditingAddress(false);
+    setEditingBanking(false);
     
       // Fetch document URLs using admin API route
     try {
@@ -416,6 +454,110 @@ function UsersManagementContent() {
       toast.error(error.message || "Failed to update banking credentials");
     } finally {
       setSavingBanking(false);
+    }
+  };
+
+  const handleSavePersonalInfo = async () => {
+    const currentUser = selectedUser;
+    
+    if (!currentUser || !currentUser.id) {
+      toast.error("No user selected. Please close and reopen the user details.");
+      return;
+    }
+
+    const userId = String(currentUser.id).trim();
+    
+    if (!userId || userId === 'undefined' || userId === 'null' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
+      toast.error("Invalid user ID. Please close and reopen the user details.");
+      return;
+    }
+
+    setSavingCredentials(true);
+
+    try {
+      const response = await fetch(`/api/admin/users/${userId}/credentials`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(personalInfoFormData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update personal information');
+      }
+
+      toast.success("Personal information updated successfully");
+      setEditingPersonalInfo(false);
+      
+      // Update selected user with new data
+      const updatedUser = {
+        ...currentUser,
+        ...personalInfoFormData,
+      };
+      setSelectedUser(updatedUser);
+      
+      // Refresh user list
+      refreshUsers();
+    } catch (error) {
+      console.error("Error updating personal information:", error);
+      toast.error("Failed to update personal information: " + error.message);
+    } finally {
+      setSavingCredentials(false);
+    }
+  };
+
+  const handleSaveAddress = async () => {
+    const currentUser = selectedUser;
+    
+    if (!currentUser || !currentUser.id) {
+      toast.error("No user selected. Please close and reopen the user details.");
+      return;
+    }
+
+    const userId = String(currentUser.id).trim();
+    
+    if (!userId || userId === 'undefined' || userId === 'null' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
+      toast.error("Invalid user ID. Please close and reopen the user details.");
+      return;
+    }
+
+    setSavingCredentials(true);
+
+    try {
+      const response = await fetch(`/api/admin/users/${userId}/credentials`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(addressFormData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update address information');
+      }
+
+      toast.success("Address information updated successfully");
+      setEditingAddress(false);
+      
+      // Update selected user with new data
+      const updatedUser = {
+        ...currentUser,
+        ...addressFormData,
+      };
+      setSelectedUser(updatedUser);
+      
+      // Refresh user list
+      refreshUsers();
+    } catch (error) {
+      console.error("Error updating address information:", error);
+      toast.error("Failed to update address information: " + error.message);
+    } finally {
+      setSavingCredentials(false);
     }
   };
 
@@ -863,98 +1005,334 @@ function UsersManagementContent() {
 
               {/* Personal Information */}
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <User className="w-5 h-5 text-blue-600" />
-                  Personal Information
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <p className="text-xs text-gray-500">Full Name</p>
-                    <p className="text-sm font-medium">{selectedUser.full_name || "Not provided"}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-gray-500">Email</p>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium">{selectedUser.email || "N/A"}</p>
-                      <button
-                        onClick={() => copyToClipboard(selectedUser.email, "Email")}
-                        className="p-1 hover:bg-gray-100 rounded"
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <User className="w-5 h-5 text-blue-600" />
+                    Personal Information
+                  </h3>
+                  {!editingPersonalInfo ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setEditingPersonalInfo(true);
+                        setPersonalInfoFormData({
+                          email: selectedUser.email || '',
+                          full_name: selectedUser.full_name || '',
+                          phone: selectedUser.phone || '',
+                          date_of_birth: selectedUser.date_of_birth || '',
+                          security_pin: ''
+                        });
+                      }}
+                    >
+                      <Edit className="w-4 h-4 mr-1" />
+                      Edit
+                    </Button>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setEditingPersonalInfo(false);
+                          setPersonalInfoFormData({
+                            email: '',
+                            full_name: '',
+                            phone: '',
+                            date_of_birth: '',
+                            security_pin: ''
+                          });
+                        }}
+                        disabled={savingCredentials}
                       >
-                        {copiedField === "Email" ? (
-                          <CheckCircle2 className="w-4 h-4 text-green-600" />
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={handleSavePersonalInfo}
+                        disabled={savingCredentials || !selectedUser?.id}
+                      >
+                        {savingCredentials ? (
+                          <>
+                            <div className="w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            Saving...
+                          </>
                         ) : (
-                          <Copy className="w-4 h-4 text-gray-400" />
+                          <>
+                            <CheckCircle2 className="w-4 h-4 mr-1" />
+                            Save
+                          </>
                         )}
-                      </button>
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                
+                {editingPersonalInfo ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border rounded-lg bg-gray-50">
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-gray-700">
+                        Email <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="email"
+                        value={personalInfoFormData.email}
+                        onChange={(e) => setPersonalInfoFormData({ ...personalInfoFormData, email: e.target.value })}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="user@example.com"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-gray-700">
+                        Full Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={personalInfoFormData.full_name}
+                        onChange={(e) => setPersonalInfoFormData({ ...personalInfoFormData, full_name: e.target.value })}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="John Doe"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-gray-700">Phone Number</label>
+                      <input
+                        type="tel"
+                        value={personalInfoFormData.phone}
+                        onChange={(e) => setPersonalInfoFormData({ ...personalInfoFormData, phone: e.target.value })}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="+1234567890"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-gray-700">Date of Birth</label>
+                      <input
+                        type="date"
+                        value={personalInfoFormData.date_of_birth}
+                        onChange={(e) => setPersonalInfoFormData({ ...personalInfoFormData, date_of_birth: e.target.value })}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-gray-700">Security PIN</label>
+                      <input
+                        type="text"
+                        value={personalInfoFormData.security_pin}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/\D/g, '').slice(0, 4);
+                          setPersonalInfoFormData({ ...personalInfoFormData, security_pin: value });
+                        }}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                        placeholder="0000"
+                        maxLength={4}
+                      />
+                      <p className="text-xs text-gray-500">Leave empty to keep current PIN</p>
                     </div>
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-gray-500">Phone Number</p>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium">{selectedUser.phone || "Not provided"}</p>
-                      {selectedUser.phone && (
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <p className="text-xs text-gray-500">Full Name</p>
+                      <p className="text-sm font-medium">{selectedUser.full_name || "Not provided"}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs text-gray-500">Email</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium">{selectedUser.email || "N/A"}</p>
                         <button
-                          onClick={() => copyToClipboard(selectedUser.phone, "Phone")}
+                          onClick={() => copyToClipboard(selectedUser.email, "Email")}
                           className="p-1 hover:bg-gray-100 rounded"
                         >
-                          {copiedField === "Phone" ? (
+                          {copiedField === "Email" ? (
                             <CheckCircle2 className="w-4 h-4 text-green-600" />
                           ) : (
                             <Copy className="w-4 h-4 text-gray-400" />
                           )}
                         </button>
-                      )}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs text-gray-500">Phone Number</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium">{selectedUser.phone || "Not provided"}</p>
+                        {selectedUser.phone && (
+                          <button
+                            onClick={() => copyToClipboard(selectedUser.phone, "Phone")}
+                            className="p-1 hover:bg-gray-100 rounded"
+                          >
+                            {copiedField === "Phone" ? (
+                              <CheckCircle2 className="w-4 h-4 text-green-600" />
+                            ) : (
+                              <Copy className="w-4 h-4 text-gray-400" />
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs text-gray-500">Date of Birth</p>
+                      <p className="text-sm font-medium">{formatDate(selectedUser.date_of_birth)}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs text-gray-500">Security PIN</p>
+                      <p className="text-sm font-mono font-medium">
+                        {selectedUser.security_pin ? "••••" : "Not set"}
+                      </p>
                     </div>
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-gray-500">Date of Birth</p>
-                    <p className="text-sm font-medium">{formatDate(selectedUser.date_of_birth)}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-gray-500">Security PIN</p>
-                    <p className="text-sm font-mono font-medium">
-                      {selectedUser.security_pin ? "••••" : "Not set"}
-                    </p>
-                  </div>
-                </div>
+                )}
               </div>
 
               {/* Address Information */}
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <MapPin className="w-5 h-5 text-blue-600" />
-                  Address Information
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1 md:col-span-2">
-                    <p className="text-xs text-gray-500">Full Address</p>
-                    <p className="text-sm font-medium">
-                      {selectedUser.address 
-                        ? `${selectedUser.address}${selectedUser.city ? `, ${selectedUser.city}` : ''}${selectedUser.state ? `, ${selectedUser.state}` : ''} ${selectedUser.zip_code || ''} ${selectedUser.country || ''}`.trim()
-                        : "Not provided"}
-                    </p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-gray-500">Street Address</p>
-                    <p className="text-sm font-medium">{selectedUser.address || "Not provided"}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-gray-500">City</p>
-                    <p className="text-sm font-medium">{selectedUser.city || "Not provided"}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-gray-500">State/Province</p>
-                    <p className="text-sm font-medium">{selectedUser.state || "Not provided"}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-gray-500">Zip/Postal Code</p>
-                    <p className="text-sm font-medium">{selectedUser.zip_code || "Not provided"}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-gray-500">Country</p>
-                    <p className="text-sm font-medium">{selectedUser.country || "Not provided"}</p>
-                  </div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <MapPin className="w-5 h-5 text-blue-600" />
+                    Address Information
+                  </h3>
+                  {!editingAddress ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setEditingAddress(true);
+                        setAddressFormData({
+                          address: selectedUser.address || '',
+                          city: selectedUser.city || '',
+                          state: selectedUser.state || '',
+                          zip_code: selectedUser.zip_code || '',
+                          country: selectedUser.country || ''
+                        });
+                      }}
+                    >
+                      <Edit className="w-4 h-4 mr-1" />
+                      Edit
+                    </Button>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setEditingAddress(false);
+                          setAddressFormData({
+                            address: '',
+                            city: '',
+                            state: '',
+                            zip_code: '',
+                            country: ''
+                          });
+                        }}
+                        disabled={savingCredentials}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={handleSaveAddress}
+                        disabled={savingCredentials || !selectedUser?.id}
+                      >
+                        {savingCredentials ? (
+                          <>
+                            <div className="w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="w-4 h-4 mr-1" />
+                            Save
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
                 </div>
+                
+                {editingAddress ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border rounded-lg bg-gray-50">
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="text-xs font-medium text-gray-700">Street Address</label>
+                      <input
+                        type="text"
+                        value={addressFormData.address}
+                        onChange={(e) => setAddressFormData({ ...addressFormData, address: e.target.value })}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="123 Main Street"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-gray-700">City</label>
+                      <input
+                        type="text"
+                        value={addressFormData.city}
+                        onChange={(e) => setAddressFormData({ ...addressFormData, city: e.target.value })}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="New York"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-gray-700">State/Province</label>
+                      <input
+                        type="text"
+                        value={addressFormData.state}
+                        onChange={(e) => setAddressFormData({ ...addressFormData, state: e.target.value })}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="NY"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-gray-700">Zip/Postal Code</label>
+                      <input
+                        type="text"
+                        value={addressFormData.zip_code}
+                        onChange={(e) => setAddressFormData({ ...addressFormData, zip_code: e.target.value })}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="10001"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-gray-700">Country</label>
+                      <input
+                        type="text"
+                        value={addressFormData.country}
+                        onChange={(e) => setAddressFormData({ ...addressFormData, country: e.target.value })}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="United States"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1 md:col-span-2">
+                      <p className="text-xs text-gray-500">Full Address</p>
+                      <p className="text-sm font-medium">
+                        {selectedUser.address 
+                          ? `${selectedUser.address}${selectedUser.city ? `, ${selectedUser.city}` : ''}${selectedUser.state ? `, ${selectedUser.state}` : ''} ${selectedUser.zip_code || ''} ${selectedUser.country || ''}`.trim()
+                          : "Not provided"}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs text-gray-500">Street Address</p>
+                      <p className="text-sm font-medium">{selectedUser.address || "Not provided"}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs text-gray-500">City</p>
+                      <p className="text-sm font-medium">{selectedUser.city || "Not provided"}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs text-gray-500">State/Province</p>
+                      <p className="text-sm font-medium">{selectedUser.state || "Not provided"}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs text-gray-500">Zip/Postal Code</p>
+                      <p className="text-sm font-medium">{selectedUser.zip_code || "Not provided"}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs text-gray-500">Country</p>
+                      <p className="text-sm font-medium">{selectedUser.country || "Not provided"}</p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Banking Credentials */}

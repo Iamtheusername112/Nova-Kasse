@@ -1,20 +1,27 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Sparkles, Zap, TrendingUp, Shield, CreditCard } from "lucide-react";
 
 /**
  * Premium animated loading screen component with dynamic Nova Kasse branding
+ * Ensures minimum display time of 3 seconds for smooth user experience
+ * @param {string} message - Main loading message
+ * @param {string} subMessage - Subtitle message
+ * @param {number} minDisplayTime - Minimum time to display in milliseconds (default: 3000ms)
  */
-export default function LoadingScreen({ message = "Loading...", subMessage = null }) {
+export default function LoadingScreen({ message = "Loading...", subMessage = null, minDisplayTime = 3000 }) {
   const appName = "Nova Kasse";
   const letters = appName.split("");
   const [particles, setParticles] = useState([]);
   const [mounted, setMounted] = useState(false);
+  const mountTimeRef = useRef(null);
 
   // Generate random particle positions only on client side to avoid hydration mismatch
   useEffect(() => {
     setMounted(true);
+    // Record mount time
+    mountTimeRef.current = Date.now();
     const particleData = Array.from({ length: 20 }, () => ({
       left: `${Math.random() * 100}%`,
       top: `${Math.random() * 100}%`,

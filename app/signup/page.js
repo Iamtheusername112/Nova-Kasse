@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { ChevronLeft, ChevronRight, Check, Lock, User, MapPin, Shield, FileText, Upload, CreditCard, FileCheck } from "lucide-react";
 import FileUpload from "@/components/ui/file-upload";
 import LoadingScreen from "@/components/ui/loading-screen";
+import { useMinimumLoadingTime } from "@/lib/hooks/useMinimumLoadingTime";
 
 const STEPS = [
   { number: 1, title: "Account Credentials", icon: Lock, color: "from-blue-500 to-cyan-500" },
@@ -26,6 +27,8 @@ export default function SignUpPage() {
   const [stepDirection, setStepDirection] = useState("forward");
   const { signUp, user, loading } = useAuth();
   const router = useRouter();
+  const displayLoading = useMinimumLoadingTime(loading, 3000);
+  const displayIsLoading = useMinimumLoadingTime(isLoading, 3000);
 
   // Form data
   const [formData, setFormData] = useState({
@@ -316,7 +319,7 @@ export default function SignUpPage() {
     }
   };
 
-  if (loading) {
+  if (displayLoading) {
     return <LoadingScreen message="Initializing..." subMessage="Please wait" />;
   }
 
@@ -325,7 +328,7 @@ export default function SignUpPage() {
   }
 
   // Show loading screen during account creation
-  if (isLoading) {
+  if (displayIsLoading) {
     return (
       <LoadingScreen 
         message="Creating Your Account..." 

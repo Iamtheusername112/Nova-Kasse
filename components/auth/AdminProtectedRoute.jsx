@@ -6,12 +6,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Shield, Loader2 } from "lucide-react";
 import { isAdmin } from "@/lib/utils/admin";
 import LoadingScreen from "@/components/ui/loading-screen";
+import { useMinimumLoadingTime } from "@/lib/hooks/useMinimumLoadingTime";
 
 export default function AdminProtectedRoute({ children }) {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [checking, setChecking] = useState(true);
+  const displayLoading = useMinimumLoadingTime(loading || checking, 3000);
 
   useEffect(() => {
     const checkAdminAccess = async () => {
@@ -35,7 +37,7 @@ export default function AdminProtectedRoute({ children }) {
     checkAdminAccess();
   }, [user, loading, router]);
 
-  if (loading || checking) {
+  if (displayLoading) {
     return <LoadingScreen message="Verifying Admin Access..." subMessage="Checking your permissions" />;
   }
 

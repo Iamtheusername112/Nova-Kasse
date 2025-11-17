@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import { Mail, Lock, ArrowRight } from "lucide-react";
 import LoadingScreen from "@/components/ui/loading-screen";
+import { useMinimumLoadingTime } from "@/lib/hooks/useMinimumLoadingTime";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -16,6 +17,8 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const { signIn, user, loading } = useAuth();
   const router = useRouter();
+  const displayLoading = useMinimumLoadingTime(loading, 3000);
+  const displayIsLoading = useMinimumLoadingTime(isLoading, 3000);
 
   useEffect(() => {
     if (!loading && user) {
@@ -36,11 +39,11 @@ export default function LoginPage() {
     setIsLoading(false);
   };
 
-  if (loading) {
+  if (displayLoading) {
     return <LoadingScreen message="Initializing..." subMessage="Please wait" />;
   }
 
-  if (isLoading) {
+  if (displayIsLoading) {
     return <LoadingScreen message="Signing In..." subMessage="Please wait while we authenticate you" />;
   }
 
