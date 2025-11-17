@@ -1,144 +1,292 @@
 "use client";
 
+import { useState, useMemo } from "react";
 import Header from "@/components/layout/Header";
 import BottomNavigation from "@/components/layout/BottomNavigation";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import { ArrowUp, ArrowDown, ShoppingCart } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { 
+  TrendingDown, 
+  TrendingUp, 
+  Calendar, 
+  Filter,
+  ShoppingBag,
+  Coffee,
+  Fuel,
+  Film,
+  Zap,
+  Wifi,
+  Phone,
+  Receipt,
+  CreditCard,
+  ArrowDownLeft,
+  Building2,
+  UtensilsCrossed,
+  Car,
+  Gamepad2,
+  Music,
+  Plane,
+  Heart,
+  Gift,
+  Store,
+  Banknote
+} from "lucide-react";
+import { useTransactions } from "@/lib/hooks/useTransactions";
+import { useAuth } from "@/contexts/AuthContext";
 
 function ExpensesPageContent() {
+  const { user } = useAuth();
+  const { transactions, loading } = useTransactions(100); // Fetch more transactions for analysis
+  const [selectedPeriod, setSelectedPeriod] = useState("month");
+
+  // Get category icon and color
+  const getCategoryInfo = (category) => {
+    const categoryLower = category?.toLowerCase() || '';
+    
+    if (categoryLower.includes('food') || categoryLower.includes('dining') || categoryLower.includes('restaurant') || categoryLower.includes('coffee')) {
+      return { icon: Coffee, color: 'bg-orange-500', name: 'Food & Dining' };
+    }
+    if (categoryLower.includes('shopping') || categoryLower.includes('store') || categoryLower.includes('retail')) {
+      return { icon: ShoppingBag, color: 'bg-purple-500', name: 'Shopping' };
+    }
+    if (categoryLower.includes('fuel') || categoryLower.includes('gas') || categoryLower.includes('transportation') || categoryLower.includes('uber') || categoryLower.includes('taxi')) {
+      return { icon: Fuel, color: 'bg-green-500', name: 'Transportation' };
+    }
+    if (categoryLower.includes('entertainment') || categoryLower.includes('movie') || categoryLower.includes('netflix') || categoryLower.includes('streaming')) {
+      return { icon: Film, color: 'bg-yellow-500', name: 'Entertainment' };
+    }
+    if (categoryLower.includes('utilities') || categoryLower.includes('electric') || categoryLower.includes('water') || categoryLower.includes('utility')) {
+      return { icon: Zap, color: 'bg-red-500', name: 'Bills & Utilities' };
+    }
+    if (categoryLower.includes('internet') || categoryLower.includes('wifi')) {
+      return { icon: Wifi, color: 'bg-blue-500', name: 'Internet' };
+    }
+    if (categoryLower.includes('phone') || categoryLower.includes('mobile')) {
+      return { icon: Phone, color: 'bg-indigo-500', name: 'Phone' };
+    }
+    if (categoryLower.includes('payment') || categoryLower.includes('bill')) {
+      return { icon: Receipt, color: 'bg-pink-500', name: 'Payments' };
+    }
+    if (categoryLower.includes('transfer')) {
+      return { icon: ArrowDownLeft, color: 'bg-teal-500', name: 'Transfers' };
+    }
+    if (categoryLower.includes('request')) {
+      return { icon: Gift, color: 'bg-cyan-500', name: 'Requests' };
+    }
+    
+    return { icon: Banknote, color: 'bg-gray-500', name: category || 'Other' };
+  };
+
+  // Calculate expenses based on selected period
+  const expenseData = useMemo(() => {
+    if (!transactions || transactions.length === 0) {
+      return {
+        totalExpenses: 0,
+        expensesByCategory: [],
+        previousPeriodTotal: 0,
+        percentageChange: 0,
+      };
+    }
+
+    const now = new Date();
+    let startDate, previousStartDate, previousEndDate;
+
+    switch (selectedPeriod) {
+      case "week":
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
+        previousStartDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 14);
+        previousEndDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
+        break;
+      case "month":
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        previousStartDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        previousEndDate = new Date(now.getFullYear(), now.getMonth(), 0);
+        break;
+      case "year":
+        startDate = new Date(now.getFullYear(), 0, 1);
+        previousStartDate = new Date(now.getFullYear() - 1, 0, 1);
+        previousEndDate = new Date(now.getFullYear() - 1, 11, 31);
+        break;
+      default:
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    }
+
+    // Filter debit transactions (money going out)
+    const debitTypes = ['expense', 'payment', 'transfer', 'withdrawal', 'request'];
+    const currentPeriodTransactions = transactions.filter(t => {
+      const transactionDate = new Date(t.created_at);
+      return debitTypes.includes(t.type) && 
+             transactionDate >= startDate && 
+             transactionDate <= now;
+    });
+
+    const previousPeriodTransactions = transactions.filter(t => {
+      const transactionDate = new Date(t.created_at);
+      return debitTypes.includes(t.type) && 
+             transactionDate >= previousStartDate && 
+             transactionDate <= previousEndDate;
+    });
+
+    // Calculate total expenses for current period
+    const totalExpenses = currentPeriodTransactions.reduce(
+      (sum, t) => sum + Math.abs(parseFloat(t.amount || 0)), 
+      0
+    );
+
+    // Calculate total expenses for previous period
+    const previousPeriodTotal = previousPeriodTransactions.reduce(
+      (sum, t) => sum + Math.abs(parseFloat(t.amount || 0)), 
+      0
+    );
+
+    // Calculate percentage change
+    const percentageChange = previousPeriodTotal > 0
+      ? ((totalExpenses - previousPeriodTotal) / previousPeriodTotal) * 100
+      : 0;
+
+    // Group expenses by category
+    const categoryMap = new Map();
+    
+    currentPeriodTransactions.forEach(transaction => {
+      const category = transaction.category || transaction.type || 'Other';
+      const amount = Math.abs(parseFloat(transaction.amount || 0));
+      
+      if (categoryMap.has(category)) {
+        categoryMap.set(category, categoryMap.get(category) + amount);
+      } else {
+        categoryMap.set(category, amount);
+      }
+    });
+
+    // Convert to array and sort by amount
+    const expensesByCategory = Array.from(categoryMap.entries())
+      .map(([category, amount]) => ({
+        category,
+        amount,
+        percentage: totalExpenses > 0 ? (amount / totalExpenses) * 100 : 0,
+        ...getCategoryInfo(category),
+      }))
+      .sort((a, b) => b.amount - a.amount);
+
+    return {
+      totalExpenses,
+      expensesByCategory,
+      previousPeriodTotal,
+      percentageChange,
+    };
+  }, [transactions, selectedPeriod]);
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+    }).format(amount);
+  };
+
   return (
-    <div className="min-h-screen bg-white pb-20">
-      <Header title="Expenses" rightIcon="arrow" />
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-purple-50/20 pb-20">
+      <Header title="Expenses" rightIcon={null} />
       
       <div className="px-4 py-6">
-        {/* Card Balance Section */}
-        <div className="mb-6">
-          <h3 className="text-sm text-gray-600 mb-2">Card Balance</h3>
-          <h2 className="text-4xl font-bold text-gray-900 mb-4">$6,390</h2>
-          
-          <div className="flex gap-6">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                <ArrowUp className="w-4 h-4 text-green-600" />
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Income</p>
-                <p className="text-sm font-semibold text-green-600">$3,214</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
-                <ArrowDown className="w-4 h-4 text-red-600" />
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Expense</p>
-                <p className="text-sm font-semibold text-red-600">$1,168</p>
-              </div>
-            </div>
-          </div>
+        {/* Period Selector */}
+        <div className="flex gap-2 mb-6">
+          {["week", "month", "year"].map((period) => (
+            <Button
+              key={period}
+              onClick={() => setSelectedPeriod(period)}
+              variant={selectedPeriod === period ? "default" : "outline"}
+              className={`capitalize ${selectedPeriod === period ? 'bg-blue-600 text-white' : ''}`}
+            >
+              {period}
+            </Button>
+          ))}
         </div>
 
-        {/* Time Period Selector */}
-        <div className="mb-6">
-          <Tabs defaultValue="monthly" className="w-full">
-            <TabsList className="w-full justify-start bg-transparent h-auto p-0">
-              <TabsTrigger
-                value="monthly"
-                className="px-4 py-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white rounded-full"
-              >
-                Monthly
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-          <div className="flex gap-2 mt-4">
-            {["Jan", "Feb", "Mar", "Apr", "May"].map((month, index) => (
-              <button
-                key={month}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                  index === 0
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
-              >
-                {month}
-              </button>
-            ))}
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div>
+            <p className="mt-2 text-sm text-gray-500">Loading expenses...</p>
           </div>
-        </div>
-
-        {/* Chart Section */}
-        <Card className="mb-6 border-0 shadow-sm">
-          <CardContent className="p-6">
-            <div className="h-48 relative">
-              <svg className="w-full h-full" viewBox="0 0 300 150" preserveAspectRatio="none">
-                {/* Y-axis labels */}
-                <text x="5" y="20" fontSize="10" fill="#6b7280">3,000</text>
-                <text x="5" y="75" fontSize="10" fill="#6b7280">2,000</text>
-                <text x="5" y="130" fontSize="10" fill="#6b7280">1,000</text>
-                
-                {/* Grid lines */}
-                <line x1="30" y1="20" x2="300" y2="20" stroke="#e5e7eb" strokeWidth="1" />
-                <line x1="30" y1="75" x2="300" y2="75" stroke="#e5e7eb" strokeWidth="1" />
-                <line x1="30" y1="130" x2="300" y2="130" stroke="#e5e7eb" strokeWidth="1" />
-                
-                {/* Green line (income trend) */}
-                <polyline
-                  points="40,60 60,55 80,50 100,45 120,40 140,38 160,35 180,32 200,30"
-                  fill="none"
-                  stroke="#10b981"
-                  strokeWidth="2"
-                />
-                
-                {/* Red line (expense trend - dips around 04 and 05) */}
-                <polyline
-                  points="40,100 60,95 80,90 100,110 120,105 140,95 160,90 180,85 200,80"
-                  fill="none"
-                  stroke="#ef4444"
-                  strokeWidth="2"
-                />
-                
-                {/* X-axis labels */}
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((day, index) => (
-                  <text
-                    key={day}
-                    x={40 + index * 20}
-                    y="145"
-                    fontSize="10"
-                    fill="#6b7280"
-                    textAnchor="middle"
-                  >
-                    {String(day).padStart(2, "0")}
-                  </text>
-                ))}
-              </svg>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Spending Breakdown */}
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Spending Breakdown
-          </h3>
-          <Card className="border-0 shadow-sm">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                    <ShoppingCart className="w-5 h-5 text-blue-600" />
-                  </div>
+        ) : (
+          <>
+            {/* Total Expenses Card */}
+            <Card className="mb-6 border-0 shadow-lg bg-white/80 backdrop-blur-sm rounded-2xl">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h4 className="font-medium text-gray-900">Shopping</h4>
-                    <p className="text-sm text-gray-500">17 Monday January</p>
+                    <p className="text-sm text-gray-500 mb-1">Total Expenses</p>
+                    <h2 className="text-3xl font-bold text-gray-900">
+                      {formatCurrency(expenseData.totalExpenses)}
+                    </h2>
+                  </div>
+                  <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
+                    <TrendingDown className="w-8 h-8 text-red-600" />
                   </div>
                 </div>
-                <p className="text-lg font-semibold text-red-600">-$279,90</p>
+                {expenseData.previousPeriodTotal > 0 && (
+                  <div className={`flex items-center gap-2 text-sm ${expenseData.percentageChange >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    {expenseData.percentageChange >= 0 ? (
+                      <TrendingUp className="w-4 h-4" />
+                    ) : (
+                      <TrendingDown className="w-4 h-4" />
+                    )}
+                    <span>
+                      {Math.abs(expenseData.percentageChange).toFixed(1)}% {expenseData.percentageChange >= 0 ? 'increase' : 'decrease'} from last {selectedPeriod}
+                    </span>
+                  </div>
+                )}
+                {expenseData.previousPeriodTotal === 0 && expenseData.totalExpenses > 0 && (
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <Calendar className="w-4 h-4" />
+                    <span>First {selectedPeriod} with expenses</span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Expenses by Category */}
+            {expenseData.expensesByCategory.length > 0 ? (
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-gray-900">By Category</h3>
+                {expenseData.expensesByCategory.map((expense, index) => {
+                  const CategoryIcon = expense.icon;
+                  return (
+                    <Card key={index} className="border-0 shadow-sm bg-white/80 backdrop-blur-sm rounded-xl">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-xl ${expense.color} flex items-center justify-center text-white`}>
+                              <CategoryIcon className="w-5 h-5" />
+                            </div>
+                            <span className="font-medium text-gray-900">{expense.name}</span>
+                          </div>
+                          <span className="font-bold text-gray-900">{formatCurrency(expense.amount)}</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div
+                            className={`h-2 rounded-full ${expense.color} transition-all duration-500`}
+                            style={{ width: `${expense.percentage}%` }}
+                          ></div>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">{expense.percentage.toFixed(1)}% of total</p>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            ) : (
+              <Card className="border-0 shadow-sm bg-white/80 backdrop-blur-sm rounded-xl">
+                <CardContent className="p-8 text-center">
+                  <TrendingDown className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-900 font-semibold mb-1">No expenses yet</p>
+                  <p className="text-sm text-gray-500">Your expenses for this {selectedPeriod} will appear here</p>
+                </CardContent>
+              </Card>
+            )}
+          </>
+        )}
       </div>
 
       <BottomNavigation />
@@ -153,4 +301,3 @@ export default function ExpensesPage() {
     </ProtectedRoute>
   );
 }
-

@@ -6,7 +6,7 @@
 CREATE TABLE IF NOT EXISTS transactions (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  type TEXT NOT NULL CHECK (type IN ('transfer', 'deposit', 'withdrawal', 'payment', 'income', 'expense')),
+  type TEXT NOT NULL CHECK (type IN ('transfer', 'deposit', 'withdrawal', 'payment', 'income', 'expense', 'request')),
   amount DECIMAL(10, 2) NOT NULL,
   recipient_name TEXT,
   recipient_phone TEXT,

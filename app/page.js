@@ -99,9 +99,9 @@ function HomePageContent() {
   
   const quickActions = [
     { icon: Send, label: "Send", color: "bg-blue-600", delay: "delay-100", href: "/transfer" },
-    { icon: ArrowDownLeft, label: "Request", color: "bg-blue-600", delay: "delay-200", href: "#" },
-    { icon: CreditCard, label: "Pay", color: "bg-blue-600", delay: "delay-300", href: "#" },
-    { icon: MoreHorizontal, label: "More", color: "bg-blue-600", delay: "delay-400", href: "#" },
+    { icon: ArrowDownLeft, label: "Request", color: "bg-blue-600", delay: "delay-200", href: "/request" },
+    { icon: CreditCard, label: "Pay", color: "bg-blue-600", delay: "delay-300", href: "/pay" },
+    { icon: MoreHorizontal, label: "More", color: "bg-blue-600", delay: "delay-400", href: "/more" },
   ];
 
   // Map transaction types to icons and colors
@@ -283,7 +283,12 @@ function HomePageContent() {
             <div className="space-y-3">
               {transactions.map((transaction, index) => {
                 const Icon = getTransactionIcon(transaction.type, transaction.category);
-                const isIncome = transaction.type === 'income' || transaction.type === 'deposit';
+                // Credits: income, deposit (money coming in)
+                // Debits: expense, payment, transfer, withdrawal, request (money going out)
+                const isCredit = transaction.type === 'income' || transaction.type === 'deposit';
+                const isDebit = transaction.type === 'expense' || transaction.type === 'payment' || 
+                               transaction.type === 'transfer' || transaction.type === 'withdrawal' || 
+                               transaction.type === 'request';
                 const amount = parseFloat(transaction.amount || 0);
                 
                 return (
@@ -295,7 +300,7 @@ function HomePageContent() {
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3 flex-1">
-                          <div className={`w-12 h-12 rounded-xl ${isIncome ? 'bg-green-600' : 'bg-gray-600'} flex items-center justify-center shadow-md`}>
+                          <div className={`w-12 h-12 rounded-xl ${isCredit ? 'bg-green-600' : 'bg-gray-600'} flex items-center justify-center shadow-md`}>
                             <Icon className="w-6 h-6 text-white" />
                           </div>
                           <div className="flex-1 min-w-0">
@@ -310,8 +315,8 @@ function HomePageContent() {
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className={`text-lg font-bold ${isIncome ? 'text-green-600' : 'text-gray-900'}`}>
-                            {isIncome ? '+' : '-'}{formatCurrency(Math.abs(amount))}
+                          <p className={`text-lg font-bold ${isCredit ? 'text-green-600' : isDebit ? 'text-red-600' : 'text-gray-900'}`}>
+                            {isCredit ? '+' : isDebit ? '-' : ''}{formatCurrency(Math.abs(amount))}
                           </p>
                           {transaction.status === 'pending' && (
                             <p className="text-xs text-yellow-600 font-medium">Pending</p>
