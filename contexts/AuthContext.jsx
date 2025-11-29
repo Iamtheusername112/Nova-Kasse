@@ -10,6 +10,7 @@ import {
   isSessionExpired,
   clearSessionStorage,
   clearCookies,
+  isRefreshTokenError,
 } from "@/lib/utils/session";
 import { uploadFile } from "@/lib/utils/upload";
 
@@ -122,6 +123,15 @@ export const AuthProvider = ({ children }) => {
       
       if (error) {
         console.error("Session check error:", error);
+        
+        // Handle refresh token errors specifically
+        if (isRefreshTokenError(error)) {
+          console.warn("Refresh token not found or invalid, clearing session");
+          // Clear invalid session data
+          clearSessionStorage();
+          return false;
+        }
+        
         return false;
       }
 
@@ -143,6 +153,13 @@ export const AuthProvider = ({ children }) => {
       return true;
     } catch (error) {
       console.error("Session validation error:", error);
+      
+      // Handle refresh token errors in catch block too
+      if (isRefreshTokenError(error)) {
+        console.warn("Refresh token error in catch block, clearing session");
+        clearSessionStorage();
+      }
+      
       return false;
     }
   }, []);
@@ -160,11 +177,26 @@ export const AuthProvider = ({ children }) => {
         if (!mounted) return;
 
         if (isValid) {
-          const { data: { session: currentSession } } = await supabase.auth.getSession();
-          if (mounted) {
+          const { data: { session: currentSession }, error } = await supabase.auth.getSession();
+          
+          // Check for refresh token errors when getting session
+          if (error && isRefreshTokenError(error)) {
+            console.warn("Refresh token error during initialization, clearing session");
+            clearSessionStorage();
+            if (mounted) {
+              setUser(null);
+              setSession(null);
+            }
+            return;
+          }
+          
+          if (mounted && currentSession) {
             setSession(currentSession);
             setUser(currentSession?.user ?? null);
             storeSessionTimestamp();
+          } else if (mounted) {
+            setUser(null);
+            setSession(null);
           }
         } else {
           if (mounted) {
@@ -174,6 +206,13 @@ export const AuthProvider = ({ children }) => {
         }
       } catch (error) {
         console.error("Auth initialization error:", error);
+        
+        // Handle refresh token errors specifically
+        if (isRefreshTokenError(error)) {
+          console.warn("Refresh token error in initialization catch, clearing session");
+          clearSessionStorage();
+        }
+        
         if (mounted) {
           setUser(null);
           setSession(null);
@@ -195,21 +234,45 @@ export const AuthProvider = ({ children }) => {
 
       console.log("Auth state changed:", event);
       
-      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-        setSession(currentSession);
-        setUser(currentSession?.user ?? null);
-        storeSessionTimestamp();
-        setLoading(false);
-      } else if (event === "SIGNED_OUT") {
-        setUser(null);
-        setSession(null);
-        clearSessionStorage();
-        setLoading(false);
-      } else if (event === "USER_UPDATED") {
-        setUser(currentSession?.user ?? null);
-        setLoading(false);
-      } else {
-        setLoading(false);
+      try {
+        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+          setSession(currentSession);
+          setUser(currentSession?.user ?? null);
+          storeSessionTimestamp();
+          setLoading(false);
+        } else if (event === "SIGNED_OUT") {
+          setUser(null);
+          setSession(null);
+          clearSessionStorage();
+          setLoading(false);
+        } else if (event === "USER_UPDATED") {
+          setUser(currentSession?.user ?? null);
+          setLoading(false);
+        } else {
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error("Auth state change error:", error);
+        
+        // Handle refresh token errors specifically
+        if (isRefreshTokenError(error)) {
+          console.warn("Refresh token error detected, clearing session");
+          
+          // Clear invalid session
+          setUser(null);
+          setSession(null);
+          clearSessionStorage();
+          setLoading(false);
+          
+          // Optionally redirect to login if user was previously logged in
+          if (userRef.current) {
+            console.log("User was logged in, redirecting to login...");
+            // Don't call signOut here to avoid loops, just clear state
+            // The user will need to log in again
+          }
+        } else {
+          setLoading(false);
+        }
       }
     });
 
