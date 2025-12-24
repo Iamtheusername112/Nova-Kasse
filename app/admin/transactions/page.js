@@ -170,28 +170,46 @@ function TransactionsManagementContent() {
       // Combine date and time into ISO timestamp
       const transactionTimestamp = new Date(`${transactionData.transactionDate}T${transactionData.transactionTime}`).toISOString();
 
-      const response = await fetch("/api/admin/transactions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          user_id: userId,
-          type: transactionType === "credit" ? "deposit" : "withdrawal",
-          amount: amount, // Send positive amount, API will handle sign based on type
-          description: transactionData.description,
-          note: transactionData.note || null,
-          category: transactionData.category,
-          status: "completed",
-          created_at: transactionTimestamp, // Custom timestamp
-        }),
-      });
+      let response;
+      try {
+        response = await fetch("/api/admin/transactions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            user_id: userId,
+            type: transactionType === "credit" ? "deposit" : "withdrawal",
+            amount: amount, // Send positive amount, API will handle sign based on type
+            description: transactionData.description,
+            note: transactionData.note || null,
+            category: transactionData.category,
+            status: "completed",
+            created_at: transactionTimestamp, // Custom timestamp
+          }),
+        });
+      } catch (fetchError) {
+        // Handle network errors (connection refused, CORS, etc.)
+        if (fetchError instanceof TypeError && fetchError.message === "Failed to fetch") {
+          throw new Error("Network error: Failed to connect to server. Please check your internet connection and ensure the server is running.");
+        }
+        throw fetchError;
+      }
+
+      // Check if response is ok before parsing JSON
+      if (!response.ok) {
+        let errorMessage = "Failed to process transaction";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (parseError) {
+          // If we can't parse the error response, use status text
+          errorMessage = response.statusText || `Server error (${response.status})`;
+        }
+        throw new Error(errorMessage);
+      }
 
       const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to process transaction");
-      }
 
       toast.success(
         `${transactionType === "credit" ? "Credited" : "Debited"} $${amount.toFixed(2)} ${transactionType === "credit" ? "to" : "from"} ${selectedUser.full_name || selectedUser.email}'s account`
@@ -210,13 +228,31 @@ function TransactionsManagementContent() {
   const fetchTransactions = async () => {
     setTransactionsLoading(true);
     try {
-      const response = await fetch("/api/admin/transactions");
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to fetch transactions");
+      let response;
+      try {
+        response = await fetch("/api/admin/transactions");
+      } catch (fetchError) {
+        // Handle network errors (connection refused, CORS, etc.)
+        if (fetchError instanceof TypeError && fetchError.message === "Failed to fetch") {
+          throw new Error("Network error: Failed to connect to server. Please check your internet connection and ensure the server is running.");
+        }
+        throw fetchError;
       }
 
+      // Check if response is ok before parsing JSON
+      if (!response.ok) {
+        let errorMessage = "Failed to fetch transactions";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (parseError) {
+          // If we can't parse the error response, use status text
+          errorMessage = response.statusText || `Server error (${response.status})`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
       setTransactions(data.transactions || []);
     } catch (error) {
       console.error("Error fetching transactions:", error);
@@ -299,32 +335,50 @@ function TransactionsManagementContent() {
       // Combine date and time into ISO timestamp
       const transactionTimestamp = new Date(`${editTransactionData.transactionDate}T${editTransactionData.transactionTime}`).toISOString();
 
-      const response = await fetch(`/api/admin/transactions/${selectedTransaction.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          type: editTransactionData.type,
-          amount: finalAmount,
-          description: editTransactionData.description,
-          note: editTransactionData.note || null,
-          category: editTransactionData.category || null,
-          status: editTransactionData.status,
-          recipient_name: editTransactionData.recipient_name || null,
-          recipient_phone: editTransactionData.recipient_phone || null,
-          recipient_email: editTransactionData.recipient_email || null,
-          recipient_account: editTransactionData.recipient_account || null,
-          transfer_method: editTransactionData.transfer_method || null,
-          created_at: transactionTimestamp,
-        }),
-      });
+      let response;
+      try {
+        response = await fetch(`/api/admin/transactions/${selectedTransaction.id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            type: editTransactionData.type,
+            amount: finalAmount,
+            description: editTransactionData.description,
+            note: editTransactionData.note || null,
+            category: editTransactionData.category || null,
+            status: editTransactionData.status,
+            recipient_name: editTransactionData.recipient_name || null,
+            recipient_phone: editTransactionData.recipient_phone || null,
+            recipient_email: editTransactionData.recipient_email || null,
+            recipient_account: editTransactionData.recipient_account || null,
+            transfer_method: editTransactionData.transfer_method || null,
+            created_at: transactionTimestamp,
+          }),
+        });
+      } catch (fetchError) {
+        // Handle network errors (connection refused, CORS, etc.)
+        if (fetchError instanceof TypeError && fetchError.message === "Failed to fetch") {
+          throw new Error("Network error: Failed to connect to server. Please check your internet connection and ensure the server is running.");
+        }
+        throw fetchError;
+      }
+
+      // Check if response is ok before parsing JSON
+      if (!response.ok) {
+        let errorMessage = "Failed to update transaction";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (parseError) {
+          // If we can't parse the error response, use status text
+          errorMessage = response.statusText || `Server error (${response.status})`;
+        }
+        throw new Error(errorMessage);
+      }
 
       const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to update transaction");
-      }
 
       toast.success("Transaction updated successfully");
       handleCloseEditModal();
